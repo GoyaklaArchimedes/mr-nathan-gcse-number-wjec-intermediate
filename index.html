@@ -1,0 +1,1007 @@
+<!--
+GCSE Digital Question Bank — NUMBER
+WJEC Intermediate Tier
+Version 1.0.0 (CERTIFIED)
+Standalone distribution build
+DO NOT MODIFY
+-->
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mr Nathan's GCSE Maths Question Bank</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f7fb;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #ffffff;
+      padding: 24px 28px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.6rem;
+      color: #134b9b;
+    }
+    .subtitle {
+      color: #555;
+      margin-bottom: 16px;
+      font-size: 0.95rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    select, button {
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      border-radius: 4px;
+      border: 1px solid #c5cbe0;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    button {
+      background: #134b9b;
+      color: #fff;
+      border: none;
+    }
+    button:hover { background: #0f3f84; }
+    button:disabled { background:#9fb2d6; cursor:not-allowed; }
+
+    .meta {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .question-text {
+      font-size: 1.05rem;
+      margin: 12px 0 16px;
+      white-space: pre-wrap;
+    }
+    .options {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px;
+    }
+    .options li {
+      margin-bottom: 6px;
+      line-height: 1.35;
+    }
+    .option-label {
+      display: inline-block;
+      width: 20px;
+      font-weight: bold;
+    }
+    .solution {
+      border-top: 1px solid #dde3f5;
+      margin-top: 12px;
+      padding-top: 12px;
+      display: none;
+      font-size: 0.95rem;
+    }
+    .solution pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: inherit;
+      line-height: 1.35;
+    }
+    .difficulty { font-weight: bold; }
+    .footer-note {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: #999;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e7eefe;
+      color: #134b9b;
+      font-size: 0.75rem;
+      margin-right: 0;
+    }
+    .id-pill {
+      margin-left: auto;
+      background: #eef3ff;
+      color: #0f3f84;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Mr Nathan's GCSE Maths Question Bank</h1>
+    <div class="subtitle">
+      Intermediate Tier • Random, regeneratable MCQs with full worked solutions.
+    </div>
+
+    <div class="controls">
+      <label for="topicSelect">Topic:</label>
+      <select id="topicSelect">
+        <option value="all">(All topics)</option>
+        <option value="Number">Number</option>
+        <option value="Algebra">Algebra</option>
+        <option value="Geometry & Measure">Geometry & Measure</option>
+        <option value="Statistics & Probability">Statistics & Probability</option>
+      </select>
+
+      <button id="newQuestionBtn">New Question</button>
+      <button id="showSolutionBtn">Show Solution</button>
+      <button id="hideSolutionBtn" disabled>Hide Solution</button>
+    </div>
+
+    <div class="meta">
+      <span id="topicTag" class="pill"></span>
+      <span id="skillTag" class="pill"></span>
+      <span class="difficulty">Difficulty: <span id="difficultyText"></span></span>
+      <span id="idTag" class="pill id-pill"></span>
+    </div>
+
+    <div class="question-text" id="questionText">
+      Click “New Question” to begin.
+    </div>
+
+    <ul class="options" id="optionsList"></ul>
+
+    <div class="solution" id="solutionBlock">
+      <strong>Worked solution</strong>
+      <pre id="solutionText"></pre>
+    </div>
+
+    <div class="footer-note">
+      This is a growing question bank. Next goal: make Number fully exam-complete for WJEC GCSE Intermediate Tier.
+    </div>
+  </div>
+
+<script>
+/* =========================
+   Utilities (GCSE-faithful)
+   ========================= */
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function choice(arr){ return arr[randInt(0, arr.length - 1)]; }
+function shuffleArray(arr){
+  const copy = arr.slice();
+  for(let i = copy.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+function gcd(a,b){
+  a = Math.abs(a); b = Math.abs(b);
+  while(b !== 0){ const t = a % b; a = b; b = t; }
+  return a;
+}
+
+/* Question IDs (human-readable, short, with category prefix) */
+function makeID(prefix){
+  const t = Date.now().toString(36).slice(-6).toUpperCase();
+  const r = Math.random().toString(36).slice(2,6).toUpperCase();
+  return `${prefix}-${t}-${r}`;
+}
+
+/* Superscripts (no caret powers) */
+const SUP = { "0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹","-":"⁻" };
+function toSuperscript(n){
+  return String(n).split("").map(ch => SUP[ch] ?? ch).join("");
+}
+
+/* Fractions (avoid recurring decimals) */
+class Fraction{
+  constructor(n,d=1){
+    if(d === 0) throw new Error("Denominator 0");
+    if(d < 0){ n = -n; d = -d; }
+    const g = gcd(n,d);
+    this.n = n/g;
+    this.d = d/g;
+  }
+  add(o){ return new Fraction(this.n*o.d + o.n*this.d, this.d*o.d); }
+  sub(o){ return new Fraction(this.n*o.d - o.n*this.d, this.d*o.d); }
+  mul(o){ return new Fraction(this.n*o.n, this.d*o.d); }
+  div(o){ return new Fraction(this.n*o.d, this.d*o.n); }
+  toMixedString(){
+    if(this.n === 0) return "0";
+    const neg = this.n < 0;
+    const an = Math.abs(this.n);
+    const whole = Math.floor(an / this.d);
+    const rem = an % this.d;
+    if(rem === 0) return (neg ? "-" : "") + String(whole);
+    if(whole === 0) return (neg ? "-" : "") + `${rem}/${this.d}`;
+    return (neg ? "-" : "") + `${whole} ${rem}/${this.d}`;
+  }
+  toFractionString(){
+    if(this.d === 1) return String(this.n);
+    return `${this.n}/${this.d}`;
+  }
+}
+
+/* Money formatting: £x.xx (work in pence) */
+function moneyFromPence(p){
+  const neg = p < 0;
+  const ap = Math.abs(p);
+  const pounds = Math.floor(ap / 100);
+  const pennies = ap % 100;
+  return (neg ? "-" : "") + "£" + String(pounds) + "." + String(pennies).padStart(2,"0");
+}
+
+/* Standard form with one decimal coefficient (store coefficient as tenths integer 10..99) */
+function normaliseStdForm(tenths, exp){
+  if(tenths === 0) return { tenths: 0, exp: 0 };
+  while(tenths >= 100){ tenths = Math.round(tenths / 10); exp += 1; }
+  while(tenths < 10){ tenths *= 10; exp -= 1; }
+  if(tenths >= 100){ tenths = Math.round(tenths / 10); exp += 1; }
+  if(tenths < 10){ tenths *= 10; exp -= 1; }
+  return { tenths, exp };
+}
+function stdFormToString(tenths, exp){
+  const a = (tenths / 10).toFixed(1);
+  return `${a} × 10${toSuperscript(exp)}`;
+}
+function multiplyStdForm(a1,e1,a2,e2){
+  let tenths = a1 * a2;
+  let exp = e1 + e2 - 1;
+  return normaliseStdForm(tenths, exp);
+}
+function divideStdForm(a1,e1,a2,e2){
+  const expBase = e1 - e2;
+  const num = a1 * 10;
+  if(num % a2 !== 0) throw new Error("Avoid non-terminating division");
+  let tenths = num / a2;
+  let exp = expBase - 1;
+  return normaliseStdForm(tenths, exp);
+}
+
+/* Build MCQ options (unique strings) */
+function buildMCQOptions(correctText, distractorTexts){
+  const all = [String(correctText), ...distractorTexts.map(String)];
+  const unique = [];
+  const seen = new Set();
+  for(const t of all){
+    if(!seen.has(t)){
+      seen.add(t);
+      unique.push(t);
+    }
+  }
+  if(unique.length < 4) return null;
+  const shuffled = shuffleArray(unique).slice(0,4);
+  return { options: shuffled, correctIndex: shuffled.indexOf(String(correctText)) };
+}
+
+/* =========================
+   NUMBER generators (exam-complete)
+   ========================= */
+
+function makeReversePercentMoney(){
+  const kind = choice(["increased", "reduced"]);
+  const pct = choice([5,10,20,25,50]);
+  const mult = (kind === "increased") ? (100 + pct) : (100 - pct);
+
+  const originalPence = mult * choice([120,150,180,200,250,300,350,400,450]);
+  const finalPence = (originalPence * mult) / 100;
+
+  const correctText = moneyFromPence(originalPence);
+  const wrong1 = moneyFromPence(finalPence);
+  const wrong2 = moneyFromPence((finalPence * mult) / 100);
+  const wrong3 = kind === "increased"
+    ? moneyFromPence((finalPence * 100) / (100 - pct))
+    : moneyFromPence((finalPence * 100) / (100 + pct));
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeReversePercentMoney();
+
+  return {
+    id: makeID("REV%M"),
+    topic: "Number",
+    skill: "Reverse percentage",
+    difficulty: "Core / Intermediate",
+    question: `A price is ${kind} by ${pct}% to ${moneyFromPence(finalPence)}.\nWhat was the original price?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Final price = original × ${mult}/100\n` +
+      `Original = final × 100/${mult}\n` +
+      `= ${moneyFromPence(finalPence)} × 100/${mult} = ${moneyFromPence(originalPence)}`
+  };
+}
+
+function makePercentChange(){
+  const mode = choice(["find-percent-change","find-new","find-original"]);
+
+  if(mode === "find-percent-change"){
+    const oldVal = choice([40,50,60,80,100,120,150,200]);
+    const change = choice([5,10,15,20,25,30,40,50]);
+    const dir = choice(["increase","decrease"]);
+    const newVal = dir === "increase" ? oldVal + change : oldVal - change;
+    if((change*100) % oldVal !== 0) return makePercentChange();
+    const pct = (change*100)/oldVal;
+
+    const correctText = `${pct}%`;
+    const wrong1Val = (change*100)/newVal;
+    const wrong3Val = (oldVal*100)/change;
+    if(!Number.isInteger(wrong1Val) || !Number.isInteger(wrong3Val)) return makePercentChange();
+
+    const mcq = buildMCQOptions(correctText, [`${wrong1Val}%`, `${change}%`, `${wrong3Val}%`]);
+    if(!mcq) return makePercentChange();
+
+    return {
+      id: makeID("PCHG"),
+      topic: "Number",
+      skill: "Percentage change",
+      difficulty: "Core / Intermediate",
+      question: `A value changes from ${oldVal} to ${newVal}.\nWhat is the percentage ${dir}?`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution:
+        `Change = ${newVal} − ${oldVal} = ${change}\n` +
+        `Percentage change = (change ÷ original) × 100\n` +
+        `= (${change} ÷ ${oldVal}) × 100 = ${pct}%`
+    };
+  }
+
+  if(mode === "find-new"){
+    const oldVal = choice([60,80,100,120,150,200,250]);
+    const pct = choice([5,10,12,15,20,25,30,40]);
+    const dir = choice(["increase","decrease"]);
+    const mult = dir === "increase" ? (100 + pct) : (100 - pct);
+    if((oldVal * mult) % 100 !== 0) return makePercentChange();
+    const newVal = (oldVal * mult) / 100;
+
+    const correctText = String(newVal);
+    const wrong1 = String(oldVal + pct);
+    const wrong2 = String(dir === "increase" ? (oldVal*(100-pct))/100 : (oldVal*(100+pct))/100);
+    const wrong3 = String(oldVal + (oldVal*pct));
+    if(!Number.isInteger(Number(wrong2)) || !Number.isInteger(Number(wrong3))) return makePercentChange();
+
+    const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+    if(!mcq) return makePercentChange();
+
+    return {
+      id: makeID("PCHG"),
+      topic: "Number",
+      skill: "Percentage change",
+      difficulty: "Core / Intermediate",
+      question: `A value of ${oldVal} is ${dir}d by ${pct}%.\nWhat is the new value?`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution:
+        `Multiplier = ${mult}/100\n` +
+        `New value = ${oldVal} × ${mult}/100 = ${newVal}`
+    };
+  }
+
+  const pct = choice([10,20,25,50]);
+  const dir = choice(["increase","decrease"]);
+  const mult = dir === "increase" ? (100 + pct) : (100 - pct);
+
+  const original = mult * choice([2,3,4,5,6,8,10]);
+  const finalVal = (original * mult) / 100;
+
+  const correctText = String(original);
+  const wrong1 = String(finalVal);
+  const wrong2 = String((finalVal * mult) / 100);
+  const wrong3 = String((finalVal * 100) / (dir === "increase" ? (100 - pct) : (100 + pct)));
+  if(!Number.isInteger(Number(wrong2)) || !Number.isInteger(Number(wrong3))) return makePercentChange();
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makePercentChange();
+
+  return {
+    id: makeID("PCHG"),
+    topic: "Number",
+    skill: "Percentage change",
+    difficulty: "Core / Intermediate",
+    question: `After a ${pct}% ${dir}, the value becomes ${finalVal}.\nWhat was the value before the change?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Final = original × ${mult}/100\n` +
+      `Original = final × 100/${mult}\n` +
+      `= ${finalVal} × 100/${mult} = ${original}`
+  };
+}
+
+function makeRatioSimplify(){
+  const k = choice([2,3,4,5,6,7,8,9,10,12]);
+  const a = k * choice([2,3,4,5,6]);
+  const b = k * choice([3,4,5,6,7]);
+  const g = gcd(a,b);
+
+  const correctText = `${a/g} : ${b/g}`;
+  const mcq = buildMCQOptions(correctText, [`${a}:${b}`, `${a/g}:${b}`, `${a}:${b/g}`]);
+  if(!mcq) return makeRatioSimplify();
+
+  return {
+    id: makeID("RATIO"),
+    topic: "Number",
+    skill: "Ratio simplification",
+    difficulty: "Foundation / Core",
+    question: `Simplify the ratio ${a} : ${b}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Highest common factor of ${a} and ${b} is ${g}.\n` +
+      `Divide both parts by ${g}:\n` +
+      `${a} : ${b} = ${a/g} : ${b/g}`
+  };
+}
+
+function makeBestBuy(){
+  const item = choice([
+    {name:"rice", unit:"g"},
+    {name:"coffee", unit:"g"},
+    {name:"orange juice", unit:"ml"},
+    {name:"washing powder", unit:"g"}
+  ]);
+
+  const sizeA = choice([250,400,500,750,1000]);
+  const sizeB = choice([300,450,600,900,1200]);
+  const priceA = randInt(150, 650);
+  const priceB = randInt(180, 720);
+
+  const scale = 100;
+  if((priceA * scale) % sizeA !== 0) return makeBestBuy();
+  if((priceB * scale) % sizeB !== 0) return makeBestBuy();
+
+  const unitA = (priceA * scale) / sizeA;
+  const unitB = (priceB * scale) / sizeB;
+  if(unitA === unitB) return makeBestBuy();
+
+  const correctText = (unitA < unitB) ? "A" : "B";
+  const mcq = buildMCQOptions(correctText, [(correctText === "A") ? "B" : "A", "Same value", "Neither"]);
+  if(!mcq) return makeBestBuy();
+
+  return {
+    id: makeID("BEST"),
+    topic: "Number",
+    skill: "Best buy / unit pricing",
+    difficulty: "Core / Intermediate",
+    question:
+      `Best buy:\n` +
+      `A) ${sizeA}${item.unit} of ${item.name} for ${moneyFromPence(priceA)}\n` +
+      `B) ${sizeB}${item.unit} of ${item.name} for ${moneyFromPence(priceB)}\n` +
+      `Which is better value?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Cost per ${scale}${item.unit}:\n` +
+      `A: ${moneyFromPence(unitA)} per ${scale}${item.unit}\n` +
+      `B: ${moneyFromPence(unitB)} per ${scale}${item.unit}\n` +
+      `So the better value is option ${correctText}.`
+  };
+}
+
+function makeFractionAddSub(){
+  const op = choice(["+","−"]);
+  const d1 = choice([4,5,6,8,10,12]);
+  const d2 = choice([3,4,6,8,9,12]);
+  const n1 = randInt(1, d1-1);
+  const n2 = randInt(1, d2-1);
+
+  const f1 = new Fraction(n1,d1);
+  const f2 = new Fraction(n2,d2);
+  const res = (op === "+") ? f1.add(f2) : f1.sub(f2);
+  if(res.n <= 0) return makeFractionAddSub();
+
+  const correctText = res.toMixedString();
+  const wrong1 = new Fraction(n1 + (op === "+" ? n2 : -n2), Math.max(d1,d2)).toMixedString();
+  const wrong2 = new Fraction(n1 + (op === "+" ? n2 : -n2), d1 + d2).toMixedString();
+  const wrong3 = (op === "+") ? new Fraction(n1+n2, d1*d2).toMixedString() : new Fraction(Math.abs(n1-n2), d1*d2).toMixedString();
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeFractionAddSub();
+
+  return {
+    id: makeID("FRAC"),
+    topic: "Number",
+    skill: "Fraction calculations",
+    difficulty: "Core / Intermediate",
+    question: `Work out: ${n1}/${d1} ${op} ${n2}/${d2}\nGive your answer in its simplest form.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Use a common denominator and simplify.\nAnswer = ${correctText}.`
+  };
+}
+
+function makeFractionOfAmount(){
+  const frac = choice([new Fraction(3,4), new Fraction(2,3), new Fraction(5,6), new Fraction(7,8), new Fraction(3,5)]);
+  const base = choice([24,36,48,56,60,72,80,90,96,120]);
+  if((base * frac.n) % frac.d !== 0) return makeFractionOfAmount();
+  const ans = (base * frac.n) / frac.d;
+
+  const mcq = buildMCQOptions(String(ans), [String(base*frac.n), String(base/frac.n), String(base/frac.d)]);
+  if(!mcq) return makeFractionOfAmount();
+
+  return {
+    id: makeID("FRAC"),
+    topic: "Number",
+    skill: "Fraction of an amount",
+    difficulty: "Foundation / Core",
+    question: `Find ${frac.toFractionString()} of ${base}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${frac.toFractionString()} of ${base} = ${base} × ${frac.n}/${frac.d} = ${ans}.`
+  };
+}
+
+function makeStandardFormConvert(){
+  const exp = randInt(1,7);
+  const coeffTenths = choice([10,12,15,18,20,25,30,35,40,45,50,60,75,90,99]);
+  const ordinary = coeffTenths * Math.pow(10, exp-1);
+  const correctText = stdFormToString(coeffTenths, exp);
+
+  const mcq = buildMCQOptions(correctText, [
+    stdFormToString(coeffTenths, exp-1),
+    stdFormToString(coeffTenths, exp+1),
+    `${(coeffTenths).toFixed(1)} × 10${toSuperscript(exp)}`
+  ]);
+  if(!mcq) return makeStandardFormConvert();
+
+  return {
+    id: makeID("SF"),
+    topic: "Number",
+    skill: "Standard form (convert)",
+    difficulty: "Core / Intermediate",
+    question: `Write ${ordinary} in standard form.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${ordinary} = ${correctText}.`
+  };
+}
+
+function makeStandardFormMultiply(){
+  const a1 = choice([12,15,18,20,25,30,35,40,45,50,60,75,90]);
+  const a2 = choice([12,15,18,20,25,30,40,50,60,75]);
+  const e1 = randInt(-3,5);
+  const e2 = randInt(-3,5);
+
+  const left = stdFormToString(a1,e1);
+  const right = stdFormToString(a2,e2);
+  const prod = multiplyStdForm(a1,e1,a2,e2);
+  const correctText = stdFormToString(prod.tenths, prod.exp);
+
+  const mcq = buildMCQOptions(correctText, [
+    stdFormToString(prod.tenths, prod.exp+1),
+    stdFormToString(prod.tenths, prod.exp-1),
+    `${(prod.tenths).toFixed(1)} × 10${toSuperscript(prod.exp)}`
+  ]);
+  if(!mcq) return makeStandardFormMultiply();
+
+  return {
+    id: makeID("SF×"),
+    topic: "Number",
+    skill: "Standard form (×)",
+    difficulty: "Core / Intermediate",
+    question: `Work out:\n(${left}) × (${right})\nGive your answer in standard form.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `(${left}) × (${right}) = ${correctText}.`
+  };
+}
+
+function makeStandardFormDivide(){
+  const a2 = choice([12,15,20,25,30,40,50,60,75]);
+  let a1 = choice([12,15,18,20,24,25,30,36,40,45,50,60,75,80,90]);
+
+  let tries = 0;
+  while(((a1*10) % a2) !== 0 && tries < 25){
+    a1 = choice([12,15,18,20,24,25,30,36,40,45,50,60,75,80,90]);
+    tries++;
+  }
+  if(((a1*10) % a2) !== 0) return makeStandardFormDivide();
+
+  const e1 = randInt(-2,6);
+  const e2 = randInt(-2,6);
+
+  const left = stdFormToString(a1,e1);
+  const right = stdFormToString(a2,e2);
+
+  let res;
+  try{ res = divideStdForm(a1,e1,a2,e2); }
+  catch(e){ return makeStandardFormDivide(); }
+
+  const correctText = stdFormToString(res.tenths, res.exp);
+
+  const mcq = buildMCQOptions(correctText, [
+    stdFormToString(res.tenths, res.exp+1),
+    stdFormToString(res.tenths, res.exp-1),
+    `${(res.tenths).toFixed(1)} × 10${toSuperscript(res.exp)}`
+  ]);
+  if(!mcq) return makeStandardFormDivide();
+
+  return {
+    id: makeID("SF÷"),
+    topic: "Number",
+    skill: "Standard form (÷)",
+    difficulty: "Core / Intermediate",
+    question: `Work out:\n(${left}) ÷ (${right})\nGive your answer in standard form.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `(${left}) ÷ (${right}) = ${correctText}.`
+  };
+}
+
+function makeBoundsErrorInterval(){
+  const type = choice(["1dp","nearest cm","nearest 10"]);
+
+  if(type === "1dp"){
+    const x = choice([12.3,4.7,8.1,15.6,20.0,9.9]);
+    const tenths = Math.round(x*10);
+    const low = (tenths - 0.5)/10;
+    const high = (tenths + 0.5)/10;
+
+    const correctText = `${low} ≤ L < ${high}`;
+    const mcq = buildMCQOptions(correctText, [
+      `${low} < L < ${high}`,
+      `${low} ≤ L ≤ ${high}`,
+      `${(tenths/10).toFixed(1)} − 0.5 ≤ L < ${(tenths/10).toFixed(1)} + 0.5`
+    ]);
+    if(!mcq) return makeBoundsErrorInterval();
+
+    return {
+      id: makeID("BND"),
+      topic: "Number",
+      skill: "Bounds (error interval)",
+      difficulty: "Core / Intermediate",
+      question: `A length is given as ${x.toFixed(1)} cm, correct to 1 decimal place.\nWrite the error interval for the length, L.`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `Correct to 1 decimal place means half of 0.1, which is 0.05.\n${correctText}`
+    };
+  }
+
+  if(type === "nearest cm"){
+    const cm = choice([24,35,48,63,80,92]);
+    const low = cm - 0.5;
+    const high = cm + 0.5;
+
+    const correctText = `${low} ≤ L < ${high}`;
+    const mcq = buildMCQOptions(correctText, [
+      `${low} < L < ${high}`,
+      `${low} ≤ L ≤ ${high}`,
+      `${cm-1} ≤ L < ${cm+1}`
+    ]);
+    if(!mcq) return makeBoundsErrorInterval();
+
+    return {
+      id: makeID("BND"),
+      topic: "Number",
+      skill: "Bounds (error interval)",
+      difficulty: "Core / Intermediate",
+      question: `A length is given as ${cm} cm, correct to the nearest centimetre.\nWrite the error interval for the length, L.`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `Nearest cm means half of 1, which is 0.5.\n${correctText}`
+    };
+  }
+
+  const n = choice([120,350,680,910,1040]);
+  const low = n - 5;
+  const high = n + 5;
+
+  const correctText = `${low} ≤ x < ${high}`;
+  const mcq = buildMCQOptions(correctText, [
+    `${low} < x < ${high}`,
+    `${low} ≤ x ≤ ${high}`,
+    `${n-10} ≤ x < ${n+10}`
+  ]);
+  if(!mcq) return makeBoundsErrorInterval();
+
+  return {
+    id: makeID("BND"),
+    topic: "Number",
+    skill: "Bounds (error interval)",
+    difficulty: "Core / Intermediate",
+    question: `A number is given as ${n}, correct to the nearest 10.\nWrite the error interval for the number, x.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Nearest 10 means half of 10, which is 5.\n${correctText}`
+  };
+}
+
+function makeIndicesEvaluate(){
+  const base = choice([2,3,4,5,6,7,8,9,10]);
+  const power = choice([2,3,4,5]);
+  const value = Math.pow(base, power);
+
+  const mcq = buildMCQOptions(String(value), [String(base*power), String(base+power), String(value-base)]);
+  if(!mcq) return makeIndicesEvaluate();
+
+  return {
+    id: makeID("IDX"),
+    topic: "Number",
+    skill: "Powers / indices",
+    difficulty: "Foundation / Core",
+    question: `Evaluate: ${base}${toSuperscript(power)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${base}${toSuperscript(power)} = ${base} multiplied by itself ${power} times = ${value}.`
+  };
+}
+
+function makeMultiStepPercentThenFraction(){
+  const pence = choice([1200,1500,1800,2000,2400,3000,3600,4500]);
+  const pct = choice([10,20,25,50]);
+  const newPence = (pence * (100 + pct)) / 100;
+
+  const frac = choice([new Fraction(1,2), new Fraction(3,4), new Fraction(2,3)]);
+  if((newPence * frac.n) % frac.d !== 0) return makeMultiStepPercentThenFraction();
+  const paid = (newPence * frac.n) / frac.d;
+
+  const correctText = moneyFromPence(paid);
+  const mcq = buildMCQOptions(correctText, [
+    moneyFromPence(newPence),
+    moneyFromPence(pence),
+    moneyFromPence((pence*frac.n)/frac.d)
+  ]);
+  if(!mcq) return makeMultiStepPercentThenFraction();
+
+  return {
+    id: makeID("MIX"),
+    topic: "Number",
+    skill: "Mixed multi-step",
+    difficulty: "Core / Intermediate",
+    question:
+      `A jacket costs ${moneyFromPence(pence)}.\n` +
+      `It is increased by ${pct}%.\n` +
+      `Then ${frac.toFractionString()} of the new price is paid using a voucher.\n` +
+      `How much is paid after using the voucher?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Increase: ${moneyFromPence(pence)} × ${(100+pct)}/100 = ${moneyFromPence(newPence)}\n` +
+      `Pay ${frac.toFractionString()} of ${moneyFromPence(newPence)} = ${moneyFromPence(paid)}.`
+  };
+}
+
+/* =========================
+   Minimal starter questions for other strands (unchanged UI)
+   ========================= */
+function makeLinearEquationQuestion(){
+  const a = randInt(2, 9);
+  const x = randInt(-5, 8);
+  const b = randInt(-10, 12);
+  const c = a * x + b;
+
+  const correct = x;
+  const wrong1 = x + 1;
+  const wrong2 = x - 1;
+  const wrong3 = c - b;
+
+  const mcq = buildMCQOptions(String(correct), [String(wrong1), String(wrong2), String(wrong3)]);
+  if(!mcq) return makeLinearEquationQuestion();
+
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving linear equations",
+    difficulty: "Core / Intermediate",
+    question: `Solve: ${a}x + (${b}) = ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a}x + (${b}) = ${c}\n` +
+      `${a}x = ${c} − (${b}) = ${c-b}\n` +
+      `x = ${c-b} ÷ ${a} = ${x}`
+  };
+}
+function makeRectangleAreaQuestion(){
+  const length = randInt(4, 20);
+  const width = randInt(3, 15);
+  const correct = length * width;
+
+  const mcq = buildMCQOptions(`${correct} cm²`, [
+    `${length + width} cm²`,
+    `${2*(length + width)} cm²`,
+    `${length*length} cm²`
+  ]);
+  if(!mcq) return makeRectangleAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Area of a rectangle",
+    difficulty: "Foundation",
+    question: `A rectangle has length ${length} cm and width ${width} cm. What is its area?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area = ${length} × ${width} = ${correct} cm²`
+  };
+}
+function makePythagorasQuestion(){
+  const triples = [[3,4,5],[5,12,13],[6,8,10],[8,15,17]];
+  const base = choice(triples);
+  const scale = randInt(1, 4);
+  const a = base[0] * scale;
+  const b = base[1] * scale;
+  const c = base[2] * scale;
+
+  const mcq = buildMCQOptions(`${c} cm`, [
+    `${a + b} cm`,
+    `${Math.abs(a - b)} cm`,
+    `${c + scale} cm`
+  ]);
+  if(!mcq) return makePythagorasQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Pythagoras – hypotenuse",
+    difficulty: "Intermediate",
+    question: `A right-angled triangle has shorter sides ${a} cm and ${b} cm. Find the hypotenuse.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `c² = a² + b²\n` +
+      `= ${a*a} + ${b*b} = ${a*a + b*b}\n` +
+      `c = √${a*a + b*b} = ${c} cm`
+  };
+}
+function makeMeanQuestionInteger(){
+  const n = choice([4,5,6]);
+  const mean = choice([7,8,9,10,11,12,13]);
+  const total = mean * n;
+
+  let nums = [];
+  let remaining = total;
+  for(let i=0;i<n-1;i++){
+    const maxHere = Math.min(20, remaining - (n-1-i));
+    const v = randInt(1, Math.max(1, maxHere));
+    nums.push(v);
+    remaining -= v;
+  }
+  nums.push(remaining);
+  nums = shuffleArray(nums);
+  if(nums.some(v => v < 1 || v > 20)) return makeMeanQuestionInteger();
+
+  const mcq = buildMCQOptions(String(mean), [String(total), String(nums[0]), String(nums[nums.length-1])]);
+  if(!mcq) return makeMeanQuestionInteger();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Mean",
+    difficulty: "Foundation / Core",
+    question: `The marks are: ${nums.join(", ")}.\nWhat is the mean?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Sum = ${nums.join(" + ")} = ${total}\n` +
+      `Mean = ${total} ÷ ${n} = ${mean}`
+  };
+}
+
+/* =========================
+   Registry + even distribution for "(All topics)"
+   ========================= */
+const TOPIC_MAP = {
+  "Number": [
+    makeReversePercentMoney,
+    makePercentChange,
+    makeRatioSimplify,
+    makeBestBuy,
+    makeFractionAddSub,
+    makeFractionOfAmount,
+    makeStandardFormConvert,
+    makeStandardFormMultiply,
+    makeStandardFormDivide,
+    makeBoundsErrorInterval,
+    makeMultiStepPercentThenFraction,
+    makeIndicesEvaluate
+  ],
+  "Algebra": [ makeLinearEquationQuestion ],
+  "Geometry & Measure": [ makeRectangleAreaQuestion, makePythagorasQuestion ],
+  "Statistics & Probability": [ makeMeanQuestionInteger ]
+};
+
+const ALL_TOPICS = ["Number","Algebra","Geometry & Measure","Statistics & Probability"];
+let topicBag = [];
+function refillTopicBag(){ topicBag = shuffleArray(ALL_TOPICS.slice()); }
+function pickTopicEvenly(){
+  if(topicBag.length === 0) refillTopicBag();
+  return topicBag.pop();
+}
+
+/* =========================
+   App wiring
+   ========================= */
+let currentQuestion = null;
+
+const topicSelect = document.getElementById("topicSelect");
+const newQuestionBtn = document.getElementById("newQuestionBtn");
+const showSolutionBtn = document.getElementById("showSolutionBtn");
+const hideSolutionBtn = document.getElementById("hideSolutionBtn");
+
+const questionTextEl = document.getElementById("questionText");
+const optionsListEl = document.getElementById("optionsList");
+
+const solutionBlockEl = document.getElementById("solutionBlock");
+const solutionTextEl = document.getElementById("solutionText");
+
+const topicTagEl = document.getElementById("topicTag");
+const skillTagEl = document.getElementById("skillTag");
+const difficultyTextEl = document.getElementById("difficultyText");
+const idTagEl = document.getElementById("idTag");
+
+function clearMeta(){
+  topicTagEl.textContent = "";
+  skillTagEl.textContent = "";
+  difficultyTextEl.textContent = "";
+  idTagEl.textContent = "";
+}
+
+function generateQuestion(){
+  const chosenTopic = topicSelect.value;
+
+  let topicToUse = chosenTopic;
+  if(chosenTopic === "all"){
+    topicToUse = pickTopicEvenly();
+  }
+
+  const factories = TOPIC_MAP[topicToUse] || [];
+  if(factories.length === 0){
+    questionTextEl.textContent = "No questions available yet for this topic.";
+    optionsListEl.innerHTML = "";
+    solutionBlockEl.style.display = "none";
+    hideSolutionBtn.disabled = true;
+    clearMeta();
+    currentQuestion = null;
+    return;
+  }
+
+  const factory = choice(factories);
+  currentQuestion = factory();
+
+  topicTagEl.textContent = currentQuestion.topic;
+  skillTagEl.textContent = currentQuestion.skill;
+  difficultyTextEl.textContent = currentQuestion.difficulty;
+  idTagEl.textContent = "ID: " + currentQuestion.id;
+
+  questionTextEl.textContent = currentQuestion.question;
+
+  optionsListEl.innerHTML = "";
+  const labels = ["A","B","C","D"];
+  currentQuestion.options.forEach((opt, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="option-label">${labels[idx]}.</span> ${opt}`;
+    optionsListEl.appendChild(li);
+  });
+
+  solutionTextEl.textContent = currentQuestion.solution;
+  solutionBlockEl.style.display = "none";
+  hideSolutionBtn.disabled = true;
+}
+
+newQuestionBtn.addEventListener("click", generateQuestion);
+
+showSolutionBtn.addEventListener("click", () => {
+  if(!currentQuestion) return;
+  solutionBlockEl.style.display = "block";
+  hideSolutionBtn.disabled = false;
+});
+
+hideSolutionBtn.addEventListener("click", () => {
+  solutionBlockEl.style.display = "none";
+  hideSolutionBtn.disabled = true;
+});
+
+// init
+refillTopicBag();
+clearMeta();
+</script>
+</body>
+</html>

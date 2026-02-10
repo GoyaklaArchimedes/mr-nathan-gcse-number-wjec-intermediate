@@ -472,12 +472,14 @@
     els.skipBtn.addEventListener("click", () => {
   if (!session.current) return;
 
-  // Flash mode: skip = load next question (no penalty)
-  if (session.mode.id === "flash") {
-    loadQuestion(session, els);
+  // Flash mode: skip = abandon question and load fresh one (no penalty)
+if (session.mode.id === "flash") {
+  session.current = null;
+  session.revealed = false;
+  loadQuestion(session, els);
+  return;
+}
 
-    return;
-  }
 
   // Timed / Mastery: skip counts as attempted but incorrect
   recordAnswer(session, null, els);

@@ -470,12 +470,20 @@
     });
 
     els.skipBtn.addEventListener("click", () => {
-      if (!session.current) return;
-      // Count skip as attempted but incorrect? Here: attempted yes, correct no.
-      recordAnswer(session, null, els);
-      els.answerInput.value = "";
-      els.answerInput.focus();
-    });
+  if (!session.current) return;
+
+  // Flash mode: skip = load next question (no penalty)
+  if (session.mode.id === "flash") {
+    nextQuestion(session, els);
+    return;
+  }
+
+  // Timed / Mastery: skip counts as attempted but incorrect
+  recordAnswer(session, null, els);
+  els.answerInput.value = "";
+  els.answerInput.focus();
+});
+
   }
 
   function recordAnswer(session, userAnswerOrNull, els) {

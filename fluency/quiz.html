@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fluency Quiz</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1 id="quizTitle">Fluency</h1>
+      <p id="quizSubtitle" class="subtitle"></p>
+      <div id="timerWrap" class="timer" hidden>
+        <span>Time left:</span> <strong id="timer">60</strong><span>s</span>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="qrow">
+        <div class="qmeta">
+          <span id="progress">Question 1 of 10</span>
+          <span id="modeHint" class="pill"></span>
+        </div>
+        <button id="backBtn" class="btn btn-ghost" type="button">Back to Pillar B</button>
+      </div>
+
+      <div class="question" id="questionText" aria-live="polite"></div>
+
+      <div id="flashControls" class="flash-controls" hidden>
+        <button id="revealBtn" class="btn" type="button">Reveal answer</button>
+        <div id="answerBox" class="answer" hidden></div>
+        <button id="nextFlashBtn" class="btn btn-secondary" type="button">Next</button>
+        <p class="small-note">Say it in your head before revealing.</p>
+      </div>
+
+      <form id="answerForm" class="answer-form" hidden autocomplete="off">
+        <label class="sr-only" for="answerInput">Answer</label>
+        <input id="answerInput" inputmode="numeric" pattern="[-0-9]*" placeholder="Type answer…" />
+        <button class="btn" type="submit">Submit</button>
+        <button id="skipBtn" class="btn btn-ghost" type="button">Skip</button>
+      </form>
+
+      <div id="feedback" class="feedback" aria-live="polite"></div>
+
+      <div id="results" class="results" hidden></div>
+    </section>
+
+    <footer class="footer">
+      <p class="small-note">Tip: Aim for <strong>instant</strong> answers. If you have to think, repeat Flash mode first.</p>
+    </footer>
+  </main>
+
+  <script src="fluency.js"></script>
+  <script>
+    window.Fluency.startQuizFromQuery();
+  </script>
+</body>
+</html>

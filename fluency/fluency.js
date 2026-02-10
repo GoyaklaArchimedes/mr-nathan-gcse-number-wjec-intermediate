@@ -472,15 +472,13 @@
     els.skipBtn.addEventListener("click", () => {
   if (!session.current) return;
 
-  // DEBUG: confirm Skip click fires in Flash mode
-if (session.mode.id === "flash") {
-  console.log("SKIP CLICKED — FLASH MODE");
-  alert("Skip clicked in Flash");
-  return;
-}
-
-}
-
+  // Flash mode: skip = abandon question and load fresh one (no penalty)
+  if (session.mode.id === "flash") {
+    session.current = null;
+    session.revealed = false;
+    loadQuestion(session, els);
+    return;
+  }
 
   // Timed / Mastery: skip counts as attempted but incorrect
   recordAnswer(session, null, els);

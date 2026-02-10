@@ -469,25 +469,7 @@
       if (session.mode.id !== "flash") els.answerInput.focus();
     });
 
-    els.skipBtn.addEventListener("click", () => {
-  if (!session.current) return;
-
-  // Flash mode: skip = abandon question and load fresh one (no penalty)
-  if (session.mode.id === "flash") {
-    session.current = null;
-    session.revealed = false;
-    loadQuestion(session, els);
-    return;
-  }
-
-  // Timed / Mastery: skip counts as attempted but incorrect
-  recordAnswer(session, null, els);
-  els.answerInput.value = "";
-  els.answerInput.focus();
-});
-
-  }
-
+    
   function recordAnswer(session, userAnswerOrNull, els) {
     // Mark attempted
     session.attempted += 1;
@@ -553,7 +535,7 @@
     const ids = [
       "quizTitle","quizSubtitle","timerWrap","timer","progress","modeHint",
       "backBtn","questionText","flashControls","revealBtn","answerBox","nextFlashBtn",
-      "answerForm","answerInput","skipBtn","feedback","results"
+      "answerForm","answerInput","feedback","results"
     ];
     const els = {};
     for (const id of ids) {
@@ -578,7 +560,7 @@
       nextFlashBtn: els.nextFlashBtn,
       answerForm: els.answerForm,
       answerInput: els.answerInput,
-      skipBtn: els.skipBtn,
+      
       feedback: els.feedback,
       results: els.results
     };

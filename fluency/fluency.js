@@ -474,7 +474,8 @@
 
   // Flash mode: skip = load next question (no penalty)
   if (session.mode.id === "flash") {
-    nextQuestion(session, els);
+    loadQuestion(session, els);
+
     return;
   }
 

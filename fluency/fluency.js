@@ -461,59 +461,57 @@
       if (session.mode.id !== "flash") els.answerInput.focus();
     });
   }
+function recordAnswer(session, userAnswerOrNull, els) {
 
-  function recordAnswer(session, userAnswerOrNull, els) {
-    // Mark attempted
-    session.attempted += 1;
+  session.attempted += 1;
 
-    // Store current in questions list for review
-    const q = session.current;
-    q.userAnswer = (userAnswerOrNull === null) ? null : String(userAnswerOrNull);
+  const q = session.current;
+  q.userAnswer = (userAnswerOrNull === null) ? null : String(userAnswerOrNull);
 
-    const correct = (userAnswerOrNull !== null && String(userAnswerOrNull) === q.answer);
-    if (correct) session.correct += 1;
+  const correct =
+    (userAnswerOrNull !== null &&
+     String(userAnswerOrNull) === q.answer);
 
-    /* ----- Mode-based feedback & progression ----- */
+  if (correct) session.correct += 1;
 
-if (correct) {
+  /* ----- Mode-based feedback & progression ----- */
+
+  if (correct) {
 
     els.feedback.textContent = "✓";
 
     if (session.mode.id === "flash") {
-        setTimeout(() => {
-            nextQuestion(session, els);
-        }, 500);
+      setTimeout(() => nextQuestion(session, els), 500);
     }
 
-} else {
+  } else {
 
     els.feedback.textContent = `✗  Correct answer: ${q.answer}`;
 
     if (session.mode.id === "flash") {
-
-        setTimeout(() => {
-            nextQuestion(session, els);
-        }, 1000);
-
-    } else if (session.mode.id === "timed") {
-
-        setTimeout(() => {
-            nextQuestion(session, els);
-        }, 1500);
-
+      setTimeout(() => nextQuestion(session, els), 1000);
     }
-}
 
-/* End condition for non-flash modes */
-if (session.mode.id !== "flash") {
+    else if (session.mode.id === "timed") {
+      setTimeout(() => nextQuestion(session, els), 1500);
+    }
+
+    // mastery: do nothing (manual Next)
+  }
+
+  /* ----- End condition for non-flash modes ----- */
+
+  if (session.mode.id !== "flash") {
+
     if (session.attempted >= session.totalQuestions) {
-        session._end();
-        return;
+      session._end();
+      return;
     }
+
     updateProgress(session, els);
+  }
 }
 
-    }
   }
 
   function nextQuestion(session, els) {

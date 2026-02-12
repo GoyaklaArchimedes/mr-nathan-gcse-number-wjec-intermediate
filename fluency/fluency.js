@@ -269,6 +269,23 @@
   function runQuiz(topic, mode) {
     const els = getQuizEls();
     if (!els) return;
+       // --- Mode-based UI control (Flash only shows Reveal + Next) ---
+  const isFlash = mode.id === "flash";
+
+  if (els.revealBtn) {
+    els.revealBtn.style.display = isFlash ? "inline-block" : "none";
+  }
+
+  if (els.nextFlashBtn) {
+    els.nextFlashBtn.style.display = isFlash ? "inline-block" : "none";
+  }
+
+  if (els.modeHint) {
+    els.modeHint.style.display = isFlash ? "block" : "none";
+  }
+
+     
+    
 
     const state = loadState();
 

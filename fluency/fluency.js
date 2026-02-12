@@ -510,7 +510,7 @@ function recordAnswer(session, userAnswerOrNull, els) {
 
     updateProgress(session, els);
   }
-}
+
 
 
 

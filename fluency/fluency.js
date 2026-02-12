@@ -512,7 +512,7 @@ function recordAnswer(session, userAnswerOrNull, els) {
   }
 }
 
-  }
+
 
   function nextQuestion(session, els) {
     const topicKind = session.topic.kind;

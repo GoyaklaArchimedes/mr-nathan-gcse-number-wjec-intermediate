@@ -473,18 +473,46 @@
     const correct = (userAnswerOrNull !== null && String(userAnswerOrNull) === q.answer);
     if (correct) session.correct += 1;
 
-    // Feedback (very light)
-    els.feedback.textContent = correct ? "✓" : `✗  Answer: ${q.answer}`;
-    setTimeout(() => { els.feedback.textContent = ""; }, 500);
+    /* ----- Mode-based feedback & progression ----- */
 
-    // Next or end
-    if (session.mode.id !== "flash") {
-      if (session.attempted >= session.totalQuestions) {
+if (correct) {
+
+    els.feedback.textContent = "✓";
+
+    if (session.mode.id === "flash") {
+        setTimeout(() => {
+            nextQuestion(session, els);
+        }, 500);
+    }
+
+} else {
+
+    els.feedback.textContent = `✗  Correct answer: ${q.answer}`;
+
+    if (session.mode.id === "flash") {
+
+        setTimeout(() => {
+            nextQuestion(session, els);
+        }, 1000);
+
+    } else if (session.mode.id === "timed") {
+
+        setTimeout(() => {
+            nextQuestion(session, els);
+        }, 1500);
+
+    }
+}
+
+/* End condition for non-flash modes */
+if (session.mode.id !== "flash") {
+    if (session.attempted >= session.totalQuestions) {
         session._end();
         return;
-      }
-      nextQuestion(session, els);
-      updateProgress(session, els);
+    }
+    updateProgress(session, els);
+}
+
     }
   }
 

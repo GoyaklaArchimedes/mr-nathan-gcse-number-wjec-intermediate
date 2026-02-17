@@ -492,21 +492,22 @@ function recordAnswer(session, userAnswerOrNull, els) {
   /* ---------- TIMED ---------- */
   if (session.mode.id === "timed") {
 
-    if (correct) {
-      els.feedback.textContent = "";
-      nextQuestion(session, els);
-    } else {
-      els.feedback.textContent = `✗  ${q.answer}`;
-      setTimeout(() => nextQuestion(session, els), 1500);
-    }
-
-    if (session.attempted >= session.totalQuestions) {
-      session._end();
-      return;
-    }
-
+  if (session.attempted >= session.totalQuestions) {
+    session._end();
     return;
   }
+
+  if (correct) {
+    els.feedback.textContent = "✓";
+    setTimeout(() => nextQuestion(session, els), 200);
+  } else {
+    els.feedback.textContent = `✗  ${q.answer}`;
+    setTimeout(() => nextQuestion(session, els), 1400);
+  }
+
+  return;
+}
+
 
   /* ---------- MASTERY ---------- */
   if (session.mode.id === "mastery") {

@@ -483,7 +483,7 @@ function recordAnswer(session, userAnswerOrNull, els) {
       setTimeout(() => nextQuestion(session, els), 500);
     } else {
       els.feedback.textContent = `✗  ${q.answer}`;
-      setTimeout(() => nextQuestion(session, els), 1000);
+      setTimeout(() => nextQuestion(session, els), 2000);
     }
 
     return;
@@ -502,7 +502,7 @@ function recordAnswer(session, userAnswerOrNull, els) {
     setTimeout(() => nextQuestion(session, els), 200);
   } else {
     els.feedback.textContent = `✗  ${q.answer}`;
-    setTimeout(() => nextQuestion(session, els), 1400);
+    setTimeout(() => nextQuestion(session, els), 2000);
   }
 
   return;

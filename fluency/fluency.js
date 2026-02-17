@@ -331,6 +331,7 @@
         els.timer.textContent = String(Math.max(0, timeLeft));
         if (timeLeft <= 0) {
           endSession(session, state, els);
+           
         }
       }, 1000);
     }
@@ -457,7 +458,7 @@
 
       recordAnswer(session, user, els);
       els.answerInput.value = "";
-      if (session.mode.timed && session._isEnded) return;
+      
       if (session.mode.id !== "flash") els.answerInput.focus();
     });
   }
@@ -474,42 +475,59 @@ function recordAnswer(session, userAnswerOrNull, els) {
 
   if (correct) session.correct += 1;
 
-  /* ----- Mode-based feedback & progression ----- */
+  /* ---------- FLASH ---------- */
+  if (session.mode.id === "flash") {
 
-  if (correct) {
-
-    els.feedback.textContent = "✓";
-
-    if (session.mode.id === "flash") {
+    if (correct) {
+      els.feedback.textContent = "✓";
       setTimeout(() => nextQuestion(session, els), 500);
-    }
-
-  } else {
-
-    els.feedback.textContent = `✗  Correct answer: ${q.answer}`;
-
-    if (session.mode.id === "flash") {
+    } else {
+      els.feedback.textContent = `✗  ${q.answer}`;
       setTimeout(() => nextQuestion(session, els), 1000);
     }
 
-    else if (session.mode.id === "timed") {
-      setTimeout(() => nextQuestion(session, els), 1500);
-    }
-
-    // mastery: do nothing (manual Next)
+    return;
   }
 
-  /* ----- End condition for non-flash modes ----- */
+  /* ---------- TIMED ---------- */
+  if (session.mode.id === "timed") {
 
-  if (session.mode.id !== "flash") {
+    if (correct) {
+      els.feedback.textContent = "";
+      nextQuestion(session, els);
+    } else {
+      els.feedback.textContent = `✗  ${q.answer}`;
+      setTimeout(() => nextQuestion(session, els), 1500);
+    }
 
     if (session.attempted >= session.totalQuestions) {
       session._end();
       return;
     }
 
-    updateProgress(session, els);
+    return;
   }
+
+  /* ---------- MASTERY ---------- */
+  if (session.mode.id === "mastery") {
+
+    if (!correct) {
+      els.feedback.textContent = `✗  ${q.answer}`;
+    } else {
+      els.feedback.textContent = "✓";
+    }
+
+    if (session.attempted >= session.totalQuestions) {
+      session._end();
+      return;
+    }
+
+    setTimeout(() => {
+      els.feedback.textContent = "";
+      nextQuestion(session, els);
+    }, 300);
+  }
+}
 
 
 

@@ -269,23 +269,6 @@
   function runQuiz(topic, mode) {
     const els = getQuizEls();
     if (!els) return;
-       // --- Mode-based UI control (Flash only shows Reveal + Next) ---
-  const isFlash = mode.id === "flash";
-
-  if (els.revealBtn) {
-    els.revealBtn.style.display = isFlash ? "inline-block" : "none";
-  }
-
-  if (els.nextFlashBtn) {
-    els.nextFlashBtn.style.display = isFlash ? "inline-block" : "none";
-  }
-
-  if (els.modeHint) {
-    els.modeHint.style.display = isFlash ? "block" : "none";
-  }
-
-     
-    
 
     const state = loadState();
 
@@ -331,24 +314,22 @@
         els.timer.textContent = String(Math.max(0, timeLeft));
         if (timeLeft <= 0) {
           endSession(session, state, els);
-           
-        }
+
+       }
+
       }, 1000);
     }
 
-    // Controls visibility
-    if (mode.id === "flash") {
-      els.flashControls.hidden = false;
-      els.answerForm.hidden = true;
-      setupFlashControls(session, state, els);
-      nextQuestion(session, els); // show first
-    } else {
-      els.flashControls.hidden = true;
-      els.answerForm.hidden = false;
-      setupQuizControls(session, state, els);
-      nextQuestion(session, els); // show first
-      els.answerInput.focus();
-    }
+    // Controls visibility — unified typed engine for all modes
+if (els.flashControls) els.flashControls.hidden = true;
+
+els.answerForm.hidden = false;
+
+setupQuizControls(session, state, els);
+nextQuestion(session, els);
+els.answerInput.focus();
+
+   
 
     function cleanup() {
       ended = true;
@@ -360,9 +341,10 @@
       cleanup();
 
       // Hide input controls
-      els.answerForm.hidden = true;
-      els.flashControls.hidden = true;
-
+       els.answerForm.hidden = true;
+       if (els.flashControls) els.flashControls.hidden = true;
+       if (els.timerWrap) els.timerWrap.hidden = true;
+       
       const durationMs = nowMs() - session.startTime;
       const acc = session.attempted === 0 ? 0 : Math.round((session.correct / session.attempted) * 100);
 
@@ -444,25 +426,36 @@
 
   function setupQuizControls(session, state, els) {
     els.answerForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      if (!session.current) return;
+  e.preventDefault();
+  if (!session.current) return;
 
-      const raw = (els.answerInput.value || "").trim();
-      if (raw.length === 0) return;
-
-      const user = sanitiseIntegerString(raw);
-      if (user == null) {
-        els.feedback.textContent = "Please enter a whole number.";
-        return;
-      }
-
-      recordAnswer(session, user, els);
-      els.answerInput.value = "";
-      
-      if (session.mode.id !== "flash") els.answerInput.focus();
-    });
+  // ---- Mastery manual-next logic ----
+  if (session.mode.id === "mastery" && session.awaitingNext) {
+    session.awaitingNext = false;
+    els.feedback.textContent = "";
+    nextQuestion(session, els);
+    els.answerInput.value = "";
+    els.answerInput.focus();
+    return;
   }
-function recordAnswer(session, userAnswerOrNull, els) {
+
+  const raw = (els.answerInput.value || "").trim();
+  if (raw.length === 0) return;
+
+  const user = sanitiseIntegerString(raw);
+  if (user == null) {
+    els.feedback.textContent = "Please enter a whole number.";
+    return;
+  }
+
+  recordAnswer(session, user, els);
+  els.answerInput.value = "";
+  els.answerInput.focus();
+});
+
+  }
+
+  function recordAnswer(session, userAnswerOrNull, els) {
 
   session.attempted += 1;
 
@@ -475,41 +468,58 @@ function recordAnswer(session, userAnswerOrNull, els) {
 
   if (correct) session.correct += 1;
 
-  /* ---------- FLASH ---------- */
+  /* =========================
+     FLASH MODE
+     ========================= */
   if (session.mode.id === "flash") {
 
     if (correct) {
       els.feedback.textContent = "✓";
-      setTimeout(() => nextQuestion(session, els), 500);
+      setTimeout(() => {
+        els.feedback.textContent = "";
+        nextQuestion(session, els);
+      }, 500);
     } else {
       els.feedback.textContent = `✗  ${q.answer}`;
-      setTimeout(() => nextQuestion(session, els), 2000);
+      setTimeout(() => {
+        els.feedback.textContent = "";
+        nextQuestion(session, els);
+      }, 2000);
     }
 
     return;
   }
 
-  /* ---------- TIMED ---------- */
+  /* =========================
+     TIMED MODE
+     ========================= */
   if (session.mode.id === "timed") {
 
-  if (session.attempted >= session.totalQuestions) {
-    session._end();
+    if (session.attempted >= session.totalQuestions) {
+      session._end();
+      return;
+    }
+
+    if (correct) {
+      els.feedback.textContent = "✓";
+      setTimeout(() => {
+        els.feedback.textContent = "";
+        nextQuestion(session, els);
+      }, 400);
+    } else {
+      els.feedback.textContent = `✗  ${q.answer}`;
+      setTimeout(() => {
+        els.feedback.textContent = "";
+        nextQuestion(session, els);
+      }, 2000);
+    }
+
     return;
   }
 
-  if (correct) {
-    els.feedback.textContent = "✓";
-    setTimeout(() => nextQuestion(session, els), 200);
-  } else {
-    els.feedback.textContent = `✗  ${q.answer}`;
-    setTimeout(() => nextQuestion(session, els), 2000);
-  }
-
-  return;
-}
-
-
-  /* ---------- MASTERY ---------- */
+  /* =========================
+     MASTERY MODE
+     ========================= */
   if (session.mode.id === "mastery") {
 
     if (!correct) {
@@ -523,14 +533,11 @@ function recordAnswer(session, userAnswerOrNull, els) {
       return;
     }
 
-    setTimeout(() => {
-      els.feedback.textContent = "";
-      nextQuestion(session, els);
-    }, 300);
+    session.awaitingNext = true;
+return;
+
   }
 }
-
-
 
 
   function nextQuestion(session, els) {
@@ -556,6 +563,11 @@ function recordAnswer(session, userAnswerOrNull, els) {
       const n = session.attempted + 1;
       els.progress.textContent = `Question ${n} of ${session.totalQuestions}`;
     }
+     // Always keep input focused in typed modes
+if (els.answerInput && !els.answerForm.hidden) {
+  els.answerInput.focus();
+}
+
   }
 
   function updateProgress(session, els) {

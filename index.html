@@ -120,6 +120,16 @@ DO NOT MODIFY
       background: #eef3ff;
       color: #0f3f84;
     }
+
+
+    @media print {
+      body { background: #ffffff; }
+      .container { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
+      .controls, .meta, .footer-note { display: none !important; }
+      #questionText, #optionsList, #solutionBlock { display: none !important; }
+      #mockPaperContainer { display: block !important; }
+      .mock-question-card { break-inside: avoid; page-break-inside: avoid; }
+    }
   </style>
 </head>
 
@@ -141,6 +151,9 @@ DO NOT MODIFY
       </select>
 
       <button id="newQuestionBtn">New Question</button>
+      <button id="mockPaperBtn">Mock Paper</button>
+      <button id="showAllSolutionsBtn" style="display:none;">Show All Solutions</button>
+      <button id="printMockPaperBtn" style="display:none;">Print Mock Paper</button>
       <button id="showSolutionBtn">Show Solution</button>
       <button id="hideSolutionBtn" disabled>Hide Solution</button>
     </div>
@@ -162,6 +175,8 @@ DO NOT MODIFY
       <strong>Worked solution</strong>
       <pre id="solutionText"></pre>
     </div>
+
+    <div id="mockPaperContainer" style="display:none; margin-top:20px;"></div>
 
     <div class="footer-note">
       This is a growing question bank. Next goal: make Number fully exam-complete for WJEC GCSE Intermediate Tier.
@@ -239,6 +254,11 @@ function moneyFromPence(p){
   return (neg ? "-" : "") + "£" + String(pounds) + "." + String(pennies).padStart(2,"0");
 }
 
+function formatNumber(x){
+  if (Number.isInteger(x)) return String(x);
+  return Number(x).toFixed(2);
+}
+
 /* Standard form with one decimal coefficient (store coefficient as tenths integer 10..99) */
 function normaliseStdForm(tenths, exp){
   if(tenths === 0) return { tenths: 0, exp: 0 };
@@ -267,8 +287,24 @@ function divideStdForm(a1,e1,a2,e2){
 }
 
 /* Build MCQ options (unique strings) */
+function formatFinal(x){
+  if (typeof x === "number"){
+    if (Number.isInteger(x)) return String(x);
+    return Number(x).toFixed(2);
+  }
+  if (typeof x === "string"){
+    const trimmed = x.trim();
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)){
+      const num = Number(trimmed);
+      if (Number.isInteger(num)) return String(num);
+      return num.toFixed(2);
+    }
+  }
+  return x;
+}
+
 function buildMCQOptions(correctText, distractorTexts){
-  const all = [String(correctText), ...distractorTexts.map(String)];
+  const all = [formatFinal(correctText), ...distractorTexts.map(formatFinal)];
   const unique = [];
   const seen = new Set();
   for(const t of all){
@@ -279,7 +315,7 @@ function buildMCQOptions(correctText, distractorTexts){
   }
   if(unique.length < 4) return null;
   const shuffled = shuffleArray(unique).slice(0,4);
-  return { options: shuffled, correctIndex: shuffled.indexOf(String(correctText)) };
+  return { options: shuffled, correctIndex: shuffled.indexOf(formatFinal(correctText)) };
 }
 
 /* =========================
@@ -523,7 +559,7 @@ function makeFractionOfAmount(){
   if((base * frac.n) % frac.d !== 0) return makeFractionOfAmount();
   const ans = (base * frac.n) / frac.d;
 
-  const mcq = buildMCQOptions(String(ans), [String(base*frac.n), String(base/frac.n), String(base/frac.d)]);
+  const mcq = buildMCQOptions(ans, [base*frac.n, base/frac.n, base/frac.d]);
   if(!mcq) return makeFractionOfAmount();
 
   return {
@@ -534,7 +570,7 @@ function makeFractionOfAmount(){
     question: `Find ${frac.toFractionString()} of ${base}.`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
-    solution: `${frac.toFractionString()} of ${base} = ${base} × ${frac.n}/${frac.d} = ${ans}.`
+    solution: `${frac.toFractionString()} of ${base} = ${base} × ${frac.n}/${frac.d} = ${formatFinal(ans)}.`
   };
 }
 
@@ -768,37 +804,924 @@ function makeMultiStepPercentThenFraction(){
   };
 }
 
-/* =========================
-   Minimal starter questions for other strands (unchanged UI)
-   ========================= */
-function makeLinearEquationQuestion(){
-  const a = randInt(2, 9);
-  const x = randInt(-5, 8);
-  const b = randInt(-10, 12);
-  const c = a * x + b;
+function makeCompoundPercent(){
+  const start = choice([200,300,400,500,600,800,1000,1200]);
+  const pct = choice([5,10,15,20]);
+  const years = choice([2,3,4]);
+  const finalVal = Math.round(start * Math.pow((100 + pct)/100, years) * 100) / 100;
+  const linearVal = Math.round(start * (1 + years*pct/100) * 100) / 100;
 
-  const correct = x;
-  const wrong1 = x + 1;
-  const wrong2 = x - 1;
-  const wrong3 = c - b;
+  const correctText = moneyFromPence(Math.round(finalVal * 100));
+  const wrong1 = moneyFromPence(Math.round(linearVal * 100));
+  const wrong2 = moneyFromPence(Math.round(start * ((100 + pct)/100) * 100));
+  const wrong3 = moneyFromPence(Math.round((finalVal - start) * 100));
 
-  const mcq = buildMCQOptions(String(correct), [String(wrong1), String(wrong2), String(wrong3)]);
-  if(!mcq) return makeLinearEquationQuestion();
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeCompoundPercent();
 
   return {
-    id: makeID("ALG"),
-    topic: "Algebra",
-    skill: "Solving linear equations",
+    id: makeID("COMP%"),
+    topic: "Number",
+    skill: "Compound percentage",
     difficulty: "Core / Intermediate",
-    question: `Solve: ${a}x + (${b}) = ${c}`,
+    question:
+      `An investment of ${moneyFromPence(start*100)} increases by ${pct}% each year for ${years} years.\n` +
+      `What is the value of the investment at the end of the ${years} years?`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
     solution:
-      `${a}x + (${b}) = ${c}\n` +
-      `${a}x = ${c} − (${b}) = ${c-b}\n` +
-      `x = ${c-b} ÷ ${a} = ${x}`
+      `Use the multiplier ${(100+pct)}/100 each year.\n` +
+      `${moneyFromPence(start*100)} × (${(100+pct)}/100)^${years} = ${moneyFromPence(Math.round(finalVal*100))}`
   };
 }
+
+function makeAdvancedReversePercent(){
+  const pct = choice([5,10,15,20,25]);
+  const mult = 100 - pct;
+  const base = choice([120,160,200,240,300,360,480,600]);
+  const original = base * mult;
+  const sale = original * mult / 100;
+
+  const correctText = moneyFromPence(original * 100);
+  const wrong1 = moneyFromPence(sale * 100);
+  const wrong2 = moneyFromPence(Math.round((sale * 10000) / (100 + pct)));
+  const wrong3 = moneyFromPence(Math.round(sale * 10000 / mult));
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeAdvancedReversePercent();
+
+  return {
+    id: makeID("REV%A"),
+    topic: "Number",
+    skill: "Reverse percentage",
+    difficulty: "Core / Intermediate",
+    question:
+      `After a reduction of ${pct}%, a television costs ${moneyFromPence(sale*100)}.\n` +
+      `What was the price before the reduction?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `After a ${pct}% reduction, the price is ${mult}% of the original.\n` +
+      `Original = ${moneyFromPence(sale*100)} × 100/${mult} = ${moneyFromPence(original*100)}`
+  };
+}
+
+function makeRatioShare(){
+  const a = choice([2,3,4,5,6]);
+  const b = choice([3,4,5,6,7]);
+  const unit = choice([8,10,12,15,20,25]);
+  const total = (a + b) * unit;
+  const first = a * unit;
+
+  const correctText = String(first);
+  const wrong1 = String(unit);
+  const wrong2 = String(b * unit);
+  const wrong3 = String(total / a);
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeRatioShare();
+
+  return {
+    id: makeID("RSH"),
+    topic: "Number",
+    skill: "Sharing in a ratio",
+    difficulty: "Core / Intermediate",
+    question: `${total} is shared in the ratio ${a} : ${b}.\nHow much does the first person receive?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Total parts = ${a+b}.\n` +
+      `One part = ${total} ÷ ${a+b} = ${unit}.\n` +
+      `First share = ${a} × ${unit} = ${first}`
+  };
+}
+
+function makeDirectProportion(){
+  const x1 = choice([3,4,5,6,8,10,12]);
+  const k = choice([2,3,4,5,6,7,8]);
+  const y1 = x1 * k;
+  const x2 = choice([14,15,16,18,20,24]);
+  const y2 = x2 * k;
+
+  const correctText = String(y2);
+  const wrong1 = String(y1 + x2);
+  const wrong2 = String(k + x2);
+  const wrong3 = String(y1 * x2);
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeDirectProportion();
+
+  return {
+    id: makeID("DIRP"),
+    topic: "Number",
+    skill: "Direct proportion",
+    difficulty: "Core / Intermediate",
+    question: `a and b are directly proportional.\nWhen a = ${x1}, b = ${y1}.\nFind b when a = ${x2}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Since a and b are directly proportional, b = ka.\n` +
+      `k = ${y1} ÷ ${x1} = ${k}.\n` +
+      `So b = ${k} × ${x2} = ${y2}`
+  };
+}
+
+function makeFractionMultiply(){
+  const f1 = choice([new Fraction(2,3), new Fraction(3,4), new Fraction(4,5), new Fraction(5,6), new Fraction(7,8)]);
+  const f2 = choice([new Fraction(1,2), new Fraction(2,5), new Fraction(3,5), new Fraction(4,7), new Fraction(5,8)]);
+  const res = f1.mul(f2);
+
+  const correctText = res.toMixedString();
+  const wrong1 = new Fraction(f1.n + f2.n, f1.d + f2.d).toMixedString();
+  const wrong2 = new Fraction(f1.n * f2.n, f1.d + f2.d).toMixedString();
+  const wrong3 = new Fraction(f1.n + f2.n, f1.d * f2.d).toMixedString();
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeFractionMultiply();
+
+  return {
+    id: makeID("FR×"),
+    topic: "Number",
+    skill: "Fraction calculations",
+    difficulty: "Core / Intermediate",
+    question: `Work out: ${f1.toFractionString()} × ${f2.toFractionString()}\nGive your answer in its simplest form.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Multiply the numerators and multiply the denominators.\n` +
+      `${f1.toFractionString()} × ${f2.toFractionString()} = ${correctText}`
+  };
+}
+
+function makeSpeedQuestion(){
+  const speed = choice([45,50,55,60,70,80]);
+  const hours = choice([2,3,4,5]);
+  const distance = speed * hours;
+
+  const correctText = `${distance} km`;
+  const wrong1 = `${speed + hours} km`;
+  const wrong2 = `${speed * 2} km`;
+  const wrong3 = `${hours * 60} km`;
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSpeedQuestion();
+
+  return {
+    id: makeID("SPD"),
+    topic: "Number",
+    skill: "Speed, distance, time",
+    difficulty: "Core / Intermediate",
+    question: `A car travels at ${speed} km/h for ${hours} hours.\nHow far does it travel?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Distance = speed × time = ${speed} × ${hours} = ${distance} km`
+  };
+}
+
+function makeDensityQuestion(){
+  const volume = choice([4,5,8,10,12,15]);
+  const density = choice([2,3,4,5,6,8]);
+  const mass = volume * density;
+
+  const correctText = `${density} g/cm³`;
+  const wrong1 = `${mass} g/cm³`;
+  const wrong2 = `${volume} g/cm³`;
+  const wrong3 = `${mass + volume} g/cm³`;
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeDensityQuestion();
+
+  return {
+    id: makeID("DNS"),
+    topic: "Number",
+    skill: "Density",
+    difficulty: "Core / Intermediate",
+    question: `A block has mass ${mass} g and volume ${volume} cm³.\nFind the density of the block.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Density = mass ÷ volume = ${mass} ÷ ${volume} = ${density} g/cm³`
+  };
+}
+
+function makeBoundsArea(){
+  const L = choice([10,12,15,18,20]);
+  const W = choice([5,8,9,10,12]);
+  const max = (L + 0.5) * (W + 0.5);
+
+  const correctText = `${formatNumber(max)} cm²`;
+  const wrong1 = `${formatNumber(L * W)} cm²`;
+  const wrong2 = `${formatNumber((L - 0.5) * (W - 0.5))} cm²`;
+  const wrong3 = `${formatNumber((L + 0.5) * (W - 0.5))} cm²`;
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeBoundsArea();
+
+  return {
+    id: makeID("BND"),
+    topic: "Number",
+    skill: "Bounds in calculations",
+    difficulty: "Intermediate",
+    question:
+      `A length is ${L} cm correct to the nearest cm.\n` +
+      `A width is ${W} cm correct to the nearest cm.\n` +
+      `Find the maximum possible area.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Use the upper bounds ${L+0.5} and ${W+0.5}.\n` +
+      `Maximum area = ${(L+0.5)} × ${(W+0.5)} = ${formatNumber(max)} cm²`
+  };
+}
+
+function makeMixedPercentRatio(){
+  const ratioA = choice([2,3,4,5]);
+  const ratioB = choice([3,4,5,6]);
+  const total = (ratioA + ratioB) * choice([20,25,30,40]);
+  const salePct = choice([10,20,25]);
+  const firstShare = total * ratioA / (ratioA + ratioB);
+  const reduced = Math.round(firstShare * (100 - salePct)) / 100;
+
+  const correctText = moneyFromPence(Math.round(reduced * 100));
+  const wrong1 = moneyFromPence(Math.round(firstShare * 100));
+  const wrong2 = moneyFromPence(Math.round(total * (100 - salePct)));
+  const wrong3 = moneyFromPence(Math.round((total * ratioA / ratioB) * 100));
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeMixedPercentRatio();
+
+  return {
+    id: makeID("MIX"),
+    topic: "Number",
+    skill: "Mixed multi-step",
+    difficulty: "Intermediate",
+    question:
+      `${moneyFromPence(total*100)} is shared in the ratio ${ratioA} : ${ratioB}.\n` +
+      `The first share is then reduced by ${salePct}%.\n` +
+      `What is the new value of the first share?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `First share = ${moneyFromPence(total*100)} × ${ratioA}/${ratioA+ratioB} = ${moneyFromPence(Math.round(firstShare*100))}.\n` +
+      `New value = ${moneyFromPence(Math.round(firstShare*100))} × ${(100-salePct)}/100 = ${moneyFromPence(Math.round(reduced*100))}`
+  };
+}
+
+/* =========================
+   ALGEBRA GENERATORS (UPGRADED — LOCKED)
+   ========================= */
+function algAbs(n){ return Math.abs(n); }
+function algSign(n){ return n >= 0 ? "+" : "-"; }
+function algJoinSigned(base, value){ return `${base} ${algSign(value)} ${algAbs(value)}`; }
+function algBracket(variable, constant){ return `(${variable} ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)})`; }
+function algFactor(variable, root){ return `(${variable} ${root >= 0 ? "+" : "-"} ${Math.abs(root)})`; }
+function algFrac(num, den){ return den === 1 ? `${num}` : `${num}/${den}`; }
+function nonZeroInt(min, max){ let v = 0; while(v === 0) v = randInt(min, max); return v; }
+function uniqueNumberOptions(correct, extras){
+  return buildMCQOptions(String(correct), extras.map(v => String(v)));
+}
+
+function makeExpandSingleBracketQuestion(){
+  const a = randInt(2, 9);
+  const b = nonZeroInt(-9, 9);
+  const c = nonZeroInt(-9, 9);
+  const coeff = a * b;
+  const constant = a * c;
+  const correctText = `${coeff}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}`;
+  const wrong1 = `${a + b}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)}`;
+  const wrong2 = `${coeff}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)}`;
+  const wrong3 = `${a}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeExpandSingleBracketQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Expanding single brackets",
+    difficulty: "Core / Intermediate",
+    question: `Expand: ${a}${algBracket(`${b}n`, c)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a}${algBracket(`${b}n`, c)}\n` +
+      `= ${a} × ${b}n ${constant >= 0 ? "+" : "-"} ${a} × ${Math.abs(c)}\n` +
+      `= ${correctText}`
+  };
+}
+
+function makeExpandDoubleBracketQuestion(){
+  const a = nonZeroInt(-9, 9);
+  const b = nonZeroInt(-9, 9);
+  const xCoeff = a + b;
+  const constant = a * b;
+  const correctText = `n² ${xCoeff >= 0 ? "+" : "-"} ${Math.abs(xCoeff)}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}`;
+  const wrong1 = `n² ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}n ${xCoeff >= 0 ? "+" : "-"} ${Math.abs(xCoeff)}`;
+  const wrong2 = `n² ${xCoeff >= 0 ? "+" : "-"} ${Math.abs(xCoeff)}n ${Math.abs(constant)}`;
+  const wrong3 = `n² ${a >= 0 ? "+" : "-"} ${Math.abs(a)}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeExpandDoubleBracketQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Expanding double brackets",
+    difficulty: "Intermediate",
+    question: `Expand: ${algFactor("n", a)}${algFactor("n", b)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${algFactor("n", a)}${algFactor("n", b)}\n` +
+      `= n² ${a >= 0 ? "+" : "-"} ${Math.abs(a)}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}\n` +
+      `= ${correctText}`
+  };
+}
+
+function makeFactoriseCommonFactorQuestion(){
+  const k = randInt(2, 8);
+  const a = randInt(2, 9);
+  const b = nonZeroInt(-9, 9);
+  const term1 = k * a;
+  const term2 = k * b;
+  const correctText = `${k}${algBracket(`${a}n`, b)}`;
+  const wrong1 = `${a}${algBracket(`${k}n`, b)}`;
+  const wrong2 = `${k}${algBracket(`${a}n`, term2)}`;
+  const wrong3 = `${k}n ${term2 >= 0 ? "+" : "-"} ${Math.abs(term2)}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeFactoriseCommonFactorQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Factorising common factor",
+    difficulty: "Core / Intermediate",
+    question: `Factorise fully: ${term1}n ${term2 >= 0 ? "+" : "-"} ${Math.abs(term2)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `The common factor is ${k}.\n` +
+      `${term1}n ${term2 >= 0 ? "+" : "-"} ${Math.abs(term2)} = ${correctText}`
+  };
+}
+
+function makeFactoriseQuadraticQuestion(){
+  const r = nonZeroInt(-9, 9);
+  let s = nonZeroInt(-9, 9);
+  if(s === r) s += (s > 0 ? 1 : -1);
+  const b = r + s;
+  const c = r * s;
+  const correctText = `${algFactor("n", r)}${algFactor("n", s)}`;
+  const wrong1 = `${algFactor("n", -r)}${algFactor("n", -s)}`;
+  const wrong2 = `${algFactor("n", r)}${algFactor("n", -s)}`;
+  const wrong3 = `${algFactor("n", -r)}${algFactor("n", s)}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeFactoriseQuadraticQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Factorising quadratics",
+    difficulty: "Intermediate",
+    question: `Factorise fully: n² ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Find two numbers that add to ${b} and multiply to ${c}.\n` +
+      `They are ${r} and ${s}.\n` +
+      `So the answer is ${correctText}`
+  };
+}
+
+function makeSimplifyExpressionQuestion(){
+  const a = randInt(2, 9);
+  const b = nonZeroInt(-9, 9);
+  const c = randInt(2, 9);
+  const d = nonZeroInt(-9, 9);
+  const coeff = a + c;
+  const constant = b + d;
+  const correctText = `${coeff}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}`;
+  const wrong1 = `${a*c}n ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)}`;
+  const wrong2 = `${coeff}n ${b*d >= 0 ? "+" : "-"} ${Math.abs(b*d)}`;
+  const wrong3 = `${coeff + constant}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSimplifyExpressionQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Simplifying expressions",
+    difficulty: "Core",
+    question: `Simplify: ${a}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)} + ${c}n ${d >= 0 ? "+" : "-"} ${Math.abs(d)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Collect like terms.\n` +
+      `${a}n + ${c}n = ${coeff}n\n` +
+      `${b} ${d >= 0 ? "+" : "-"} ${Math.abs(d)} = ${constant}\n` +
+      `So the answer is ${correctText}`
+  };
+}
+
+function makeEquationOneStepQuestion(){
+  const a = randInt(2, 12);
+  const n = randInt(-8, 12);
+  const c = a * n;
+  const mcq = uniqueNumberOptions(n, [n + 1, n - 1, c]);
+  if(!mcq) return makeEquationOneStepQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving equations",
+    difficulty: "Core",
+    question: `Solve: ${a}p = ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Divide both sides by ${a}.\np = ${c} ÷ ${a} = ${n}`
+  };
+}
+
+function makeEquationTwoStepQuestion(){
+  const a = randInt(2, 9);
+  const n = randInt(-6, 10);
+  const b = nonZeroInt(-10, 10);
+  const c = a * n + b;
+  const mcq = uniqueNumberOptions(n, [n + 1, n - 1, c - b]);
+  if(!mcq) return makeEquationTwoStepQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving equations",
+    difficulty: "Core / Intermediate",
+    question: `Solve: ${a}p ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a}p = ${c} ${b >= 0 ? "-" : "+"} ${Math.abs(b)}\n` +
+      `${a}p = ${c - b}\n` +
+      `p = ${(c - b)} ÷ ${a} = ${n}`
+  };
+}
+
+function makeEquationBracketsQuestion(){
+  const a = randInt(2, 6);
+  const b = nonZeroInt(-8, 8);
+  const n = randInt(-6, 10);
+  const c = a * (n + b);
+  const mcq = uniqueNumberOptions(n, [n + 1, n - 1, c]);
+  if(!mcq) return makeEquationBracketsQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving equations with brackets",
+    difficulty: "Intermediate",
+    question: `Solve: ${a}${algBracket("p", b)} = ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${algBracket("p", b)} = ${c} ÷ ${a} = ${n + b}\n` +
+      `p = ${n + b} ${b >= 0 ? "-" : "+"} ${Math.abs(b)} = ${n}`
+  };
+}
+
+function makeEquationUnknownBothSidesQuestion(){
+  const n = randInt(-5, 8);
+  const a = randInt(3, 8);
+  const c = randInt(1, a - 1);
+  const b = nonZeroInt(-10, 10);
+  const d = (a - c) * n + b;
+  const mcq = uniqueNumberOptions(n, [n + 1, n - 1, d - b]);
+  if(!mcq) return makeEquationUnknownBothSidesQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving equations",
+    difficulty: "Intermediate",
+    question: `Solve: ${a}m ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${c}m ${d >= 0 ? "+" : "-"} ${Math.abs(d)}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a-c}m ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${d}\n` +
+      `${a-c}m = ${d - b}\n` +
+      `m = ${n}`
+  };
+}
+
+function makeEquationFromWordsQuestion(){
+  const n = randInt(-5, 12);
+  const a = randInt(2, 8);
+  const b = nonZeroInt(-10, 10);
+  const total = a * n + b;
+  const eqText = `${a}p ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${total}`;
+  const wrong1 = `${a} + p ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${total}`;
+  const wrong2 = `${a}p = ${total} ${b >= 0 ? "+" : "-"} ${Math.abs(b)}`;
+  const wrong3 = `${a}p ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${n}`;
+  const mcq = buildMCQOptions(eqText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeEquationFromWordsQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Equations from words",
+    difficulty: "Core / Intermediate",
+    question: `A number is multiplied by ${a} and then ${b >= 0 ? `${b} is added` : `${Math.abs(b)} is subtracted`}. The result is ${total}.\nWhich equation can be used to find the number, p?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Let the number be p.\nThe equation is ${eqText}`
+  };
+}
+
+function makeEquationCreatingQuestion(){
+  const n = randInt(-4, 9);
+  const a = randInt(2, 7);
+  const b = nonZeroInt(-8, 8);
+  const c = a * n + b;
+  const correctText = `${a}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${c}`;
+  const wrong1 = `${a + b}n = ${c}`;
+  const wrong2 = `${a} + n ${b >= 0 ? "+" : "-"} ${Math.abs(b)} = ${c}`;
+  const wrong3 = `${a}n = ${c - b}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeEquationCreatingQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Equations – creating",
+    difficulty: "Core / Intermediate",
+    question: `Which equation has solution n = ${n}?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Substitute n = ${n}.\nOnly ${correctText} is true.`
+  };
+}
+
+function makeRearrangingFormulaQuestion(){
+  const forms = [
+    { left: 'V', expr: 'u + at', ans: 'u', question: 'Make u the subject of V = u + at.', correct: 'u = V - at', wrongs: ['u = V + at', 'u = a + t - V', 'u = V/a - t'] },
+    { left: 'A', expr: 'lw', ans: 'l', question: 'Make l the subject of A = lw.', correct: 'l = A/w', wrongs: ['l = Aw', 'l = w/A', 'l = A - w'] },
+    { left: 'P', expr: '2l + 2w', ans: 'l', question: 'Make l the subject of P = 2l + 2w.', correct: 'l = (P - 2w)/2', wrongs: ['l = P - 2w/2', 'l = P/2 + w', 'l = 2P - 2w'] },
+    { left: 'C', expr: '5m - 3', ans: 'm', question: 'Make m the subject of C = 5m - 3.', correct: 'm = (C + 3)/5', wrongs: ['m = (C - 3)/5', 'm = 5C + 3', 'm = C + 3/5'] }
+  ];
+  const item = choice(forms);
+  const mcq = buildMCQOptions(item.correct, item.wrongs);
+  if(!mcq) return makeRearrangingFormulaQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Rearranging formulae",
+    difficulty: "Intermediate",
+    question: item.question,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: item.correct
+  };
+}
+
+function makeAlgebraicFractionSimplifyQuestion(){
+  const k = randInt(2, 8);
+  const a = randInt(2, 8);
+  const b = randInt(2, 8);
+  const correctText = `${a}/${b}`;
+  const wrong1 = `${k*a}/${b}`;
+  const wrong2 = `${a}/${k*b}`;
+  const wrong3 = `${k*a}/${k+b}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeAlgebraicFractionSimplifyQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Simplifying algebraic fractions",
+    difficulty: "Intermediate",
+    question: `Simplify: ${k*a}p/${k*b}p`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Cancel the common factor ${k} and cancel p.\n` +
+      `${k*a}p/${k*b}p = ${a}/${b}`
+  };
+}
+
+function makeAlgebraicFractionMultiplyDivideQuestion(){
+  const mode = choice(['multiply', 'divide']);
+  if(mode === 'multiply'){
+    const a = randInt(2, 7), b = randInt(2, 8), c = randInt(2, 7), d = randInt(2, 8);
+    const res = new Fraction(a*c, b*d);
+    const correctText = res.toFractionString();
+    const wrong1 = new Fraction(a+c, b+d).toFractionString();
+    const wrong2 = new Fraction(a*c, b+d).toFractionString();
+    const wrong3 = new Fraction(a+c, b*d).toFractionString();
+    const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+    if(!mcq) return makeAlgebraicFractionMultiplyDivideQuestion();
+    return {
+      id: makeID("ALG"),
+      topic: "Algebra",
+      skill: "Multiplying algebraic fractions",
+      difficulty: "Intermediate",
+      question: `Work out: (${a}p/${b}) × (${c}/${d}p⁰)`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `Multiply the numerators and denominators.\nAnswer = ${correctText}`
+    };
+  }
+  const a = randInt(2, 8), b = randInt(2, 8), c = randInt(2, 8), d = randInt(2, 8);
+  const res = new Fraction(a*d, b*c);
+  const correctText = res.toFractionString();
+  const wrong1 = new Fraction(a*c, b*d).toFractionString();
+  const wrong2 = new Fraction(a+d, b+c).toFractionString();
+  const wrong3 = new Fraction(a, b).toFractionString();
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeAlgebraicFractionMultiplyDivideQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Dividing algebraic fractions",
+    difficulty: "Intermediate",
+    question: `Work out: (${a}p/${b}) ÷ (${c}p/${d})`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Invert the second fraction and multiply.\n` +
+      `(${a}/${b}) ÷ (${c}/${d}) = (${a}/${b}) × (${d}/${c}) = ${correctText}`
+  };
+}
+
+function makeAlgebraicFractionEquationQuestion(){
+  const p = randInt(1, 12);
+  const a = randInt(2, 9);
+  const b = randInt(2, 9);
+  const c = new Fraction(a * p, b).toFractionString();
+  const mcq = uniqueNumberOptions(p, [p + 1, p - 1, a * p]);
+  if(!mcq) return makeAlgebraicFractionEquationQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving equations with algebraic fractions",
+    difficulty: "Intermediate",
+    question: `Solve: ${a}p/${b} = ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Multiply both sides by ${b}.\n` +
+      `${a}p = ${new Fraction(a * p, b).mul(new Fraction(b,1)).toFractionString()} = ${a*p}\n` +
+      `p = ${p}`
+  };
+}
+
+function makeInequalityQuestion(){
+  const a = randInt(2, 9);
+  const p = randInt(-6, 10);
+  const b = nonZeroInt(-10, 10);
+  const c = a * p + b;
+  const relation = choice(['<', '≤', '>', '≥']);
+  const correctText = `p ${relation} ${p}`;
+  const opposite = {'<':'>','≤':'≥','>':'<','≥':'≤'}[relation];
+  const wrong1 = `p ${opposite} ${p}`;
+  const wrong2 = `p = ${p}`;
+  const wrong3 = `p ${relation} ${p+1}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeInequalityQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Linear inequalities",
+    difficulty: "Core / Intermediate",
+    question: `Solve: ${a}p ${b >= 0 ? "+" : "-"} ${Math.abs(b)} ${relation} ${c}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a}p ${relation} ${c - b}\n` +
+      `p ${relation} ${(c - b) / a}`
+  };
+}
+
+function makeInequalityInterpretationQuestion(){
+  const boundary = randInt(-5, 10);
+  const relation = choice(['>', '≥', '<', '≤']);
+  const opts = {
+    '>': [String(boundary + 1), String(boundary), String(boundary - 1), String(boundary + 2)],
+    '≥': [String(boundary), String(boundary - 1), String(boundary + 1), String(boundary - 2)],
+    '<': [String(boundary - 1), String(boundary), String(boundary + 1), String(boundary - 2)],
+    '≤': [String(boundary), String(boundary + 1), String(boundary - 1), String(boundary + 2)]
+  };
+  const correctText = opts[relation][0];
+  const mcq = buildMCQOptions(correctText, opts[relation].slice(1));
+  if(!mcq) return makeInequalityInterpretationQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Interpreting solutions to inequalities",
+    difficulty: "Core / Intermediate",
+    question: `Which value satisfies q ${relation} ${boundary}?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Substitute each value. The correct choice is ${correctText}.`
+  };
+}
+
+function makeSimultaneousEliminationQuestion(){
+  const n = randInt(1, 8);
+  const m = randInt(1, 8);
+  const a1 = randInt(1, 4), b1 = randInt(1, 4);
+  let a2 = randInt(1, 4), b2 = randInt(1, 4);
+  while(a1*b2 === a2*b1){ a2 = randInt(1, 4); b2 = randInt(1, 4); }
+  const c1 = a1*n + b1*m;
+  const c2 = a2*n + b2*m;
+  const correctText = `n = ${n}, m = ${m}`;
+  const wrong1 = `n = ${m}, m = ${n}`;
+  const wrong2 = `n = ${n+1}, m = ${m}`;
+  const wrong3 = `n = ${n}, m = ${m+1}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSimultaneousEliminationQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Simultaneous equations – elimination",
+    difficulty: "Intermediate",
+    question:
+      `Solve:\n` +
+      `${a1}n + ${b1}m = ${c1}\n` +
+      `${a2}n + ${b2}m = ${c2}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Use elimination or substitution.\n` +
+      `The solution is n = ${n}, m = ${m}`
+  };
+}
+
+function makeSimultaneousSubstitutionQuestion(){
+  const n = randInt(1, 9);
+  const m = randInt(1, 9);
+  const a = randInt(2, 5);
+  const b = nonZeroInt(-8, 8);
+  const total = a*n + m + b;
+  const firstEq = `m = ${total - a*n - b + 0} - ${a}n ${b >= 0 ? "-" : "+"} ${Math.abs(b)}`;
+  const correctText = `n = ${n}, m = ${m}`;
+  const wrong1 = `n = ${m}, m = ${n}`;
+  const wrong2 = `n = ${n+1}, m = ${m}`;
+  const wrong3 = `n = ${n}, m = ${m+1}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSimultaneousSubstitutionQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Simultaneous equations – substitution",
+    difficulty: "Intermediate",
+    question:
+      `Solve:\n` +
+      `${firstEq}\n` +
+      `n + m = ${n + m}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Substitute ${firstEq} into n + m = ${n + m}.\nThe solution is n = ${n}, m = ${m}`
+  };
+}
+
+function makeSequenceTermToTermQuestion(){
+  const start = randInt(3, 20);
+  const step = randInt(2, 8);
+  const seq = [start, start + step, start + 2*step, start + 3*step];
+  const correctText = `Add ${step}`;
+  const wrong1 = `Multiply by ${step}`;
+  const wrong2 = `Add ${step + 1}`;
+  const wrong3 = `Subtract ${step}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSequenceTermToTermQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Sequences – term-to-term rules",
+    difficulty: "Core",
+    question: `Find the term-to-term rule for the sequence:\n${seq.join(', ')}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Each term increases by ${step}. So the rule is: add ${step}.`
+  };
+}
+
+function makeSequenceNthTermQuestion(){
+  const a = randInt(2, 7);
+  const b = nonZeroInt(-10, 10);
+  const seq = [1,2,3,4].map(n => a*n + b);
+  const correctText = `${a}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)}`;
+  const wrong1 = `${a}n`;
+  const wrong2 = `${a+1}n ${b >= 0 ? "+" : "-"} ${Math.abs(b)}`;
+  const wrong3 = `${a}n ${b+1 >= 0 ? "+" : "-"} ${Math.abs(b+1)}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSequenceNthTermQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Sequences – nth term",
+    difficulty: "Core / Intermediate",
+    question: `Find the nth term of the sequence:\n${seq.join(', ')}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `The difference is ${a}, so start with ${a}n.\nAdjust to fit the first term.\nAnswer: ${correctText}`
+  };
+}
+
+function makeSequencePatternQuestion(){
+  const type = choice(['arithmetic','square']);
+  if(type === 'arithmetic'){
+    const a = randInt(2, 6), b = randInt(1, 10);
+    const seq = [b, b+a, b+2*a, b+3*a];
+    const next = b + 4*a;
+    const mcq = uniqueNumberOptions(next, [next+1, next-1, next+a]);
+    if(!mcq) return makeSequencePatternQuestion();
+    return {
+      id: makeID("ALG"),
+      topic: "Algebra",
+      skill: "Sequences – identifying patterns",
+      difficulty: "Core",
+      question: `Find the next term in the sequence:\n${seq.join(', ')}`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `The sequence increases by ${a}, so the next term is ${next}.`
+    };
+  }
+  const seq = [1,4,9,16];
+  const correctText = '25';
+  const mcq = buildMCQOptions(correctText, ['20','24','36']);
+  if(!mcq) return makeSequencePatternQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Sequences – identifying patterns",
+    difficulty: "Core / Intermediate",
+    question: `Find the next term in the sequence:\n${seq.join(', ')}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `These are square numbers: 1², 2², 3², 4².\nThe next term is 5² = 25.`
+  };
+}
+
+function makeTrialImprovementQuestion(){
+  const target = choice([30, 40, 50, 70, 90]);
+  const low = Math.floor(Math.sqrt(target));
+  const high = Math.ceil(Math.sqrt(target));
+  const correctText = `${low} < p < ${high}`;
+  const wrong1 = `p = ${Math.sqrt(target).toFixed(2)}`;
+  const wrong2 = `${low-1} < p < ${high}`;
+  const wrong3 = `${low} ≤ p ≤ ${high}`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeTrialImprovementQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Trial & improvement",
+    difficulty: "Core / Intermediate",
+    question: `Use trial and improvement to locate the solution to p² = ${target}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${low}² = ${low*low} and ${high}² = ${high*high}.\n` +
+      `So the solution lies between ${low} and ${high}.`
+  };
+}
+
+function makeVelocityTimeTextQuestion(){
+  const speed = choice([12, 15, 18, 20]);
+  const minutes = choice([5, 10, 15, 20]);
+  const seconds = minutes * 60;
+  const distance = speed * seconds;
+  const correctText = `${distance} m`;
+  const wrong1 = `${speed * minutes} m`;
+  const wrong2 = `${seconds} m`;
+  const wrong3 = `${distance + speed} m`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeVelocityTimeTextQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Velocity–time interpretation",
+    difficulty: "Core / Intermediate",
+    question: `A runner travels at a constant speed of ${speed} m/s for ${minutes} minutes. How far does the runner travel?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Time = ${minutes} × 60 = ${seconds} seconds.\n` +
+      `Distance = speed × time = ${speed} × ${seconds} = ${distance} m`
+  };
+}
+
+function makeDistanceTimeTextQuestion(){
+  const distance = choice([120, 150, 180, 240, 300]);
+  const time = choice([10, 12, 15, 20]);
+  if(distance % time !== 0) return makeDistanceTimeTextQuestion();
+  const speed = distance / time;
+  const correctText = `${speed} m/s`;
+  const wrong1 = `${distance * time} m/s`;
+  const wrong2 = `${distance + time} m/s`;
+  const wrong3 = `${time} m/s`;
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeDistanceTimeTextQuestion();
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Distance–time interpretation",
+    difficulty: "Core / Intermediate",
+    question: `A cyclist travels ${distance} m in ${time} seconds at a constant speed. What is the speed?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Speed = distance ÷ time = ${distance} ÷ ${time} = ${speed} m/s`
+  };
+}
+
+/* =========================
+   GEOMETRY & MEASURE GENERATORS (UPGRADED — LOCKED)
+   ========================= */
+
 function makeRectangleAreaQuestion(){
   const length = randInt(4, 20);
   const width = randInt(3, 15);
@@ -815,15 +1738,428 @@ function makeRectangleAreaQuestion(){
     id: makeID("GEO"),
     topic: "Geometry & Measure",
     skill: "Area of a rectangle",
-    difficulty: "Foundation",
+    difficulty: "Foundation / Core",
     question: `A rectangle has length ${length} cm and width ${width} cm. What is its area?`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
-    solution: `Area = ${length} × ${width} = ${correct} cm²`
+    solution: `Area = length × width = ${length} × ${width} = ${correct} cm²`
   };
 }
+
+function makeRectanglePerimeterQuestion(){
+  const length = randInt(4, 20);
+  const width = randInt(3, 15);
+  const correct = 2 * (length + width);
+
+  const mcq = buildMCQOptions(`${correct} cm`, [
+    `${length + width} cm`,
+    `${length * width} cm`,
+    `${2*length + width} cm`
+  ]);
+  if(!mcq) return makeRectanglePerimeterQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Perimeter of a rectangle",
+    difficulty: "Foundation / Core",
+    question: `A rectangle has length ${length} cm and width ${width} cm. What is its perimeter?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Perimeter = 2(length + width) = 2(${length} + ${width}) = ${correct} cm`
+  };
+}
+
+function makeTriangleAreaQuestion(){
+  const base = choice([6,8,10,12,14,15,18,20]);
+  const height = choice([4,5,6,7,8,9,10,12]);
+  if((base * height) % 2 !== 0) return makeTriangleAreaQuestion();
+  const area = (base * height) / 2;
+
+  const mcq = buildMCQOptions(`${area} cm²`, [
+    `${base * height} cm²`,
+    `${base + height} cm²`,
+    `${2 * area + base} cm²`
+  ]);
+  if(!mcq) return makeTriangleAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Area of a triangle",
+    difficulty: "Core",
+    question: `A triangle has base ${base} cm and perpendicular height ${height} cm. Find its area.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area = 1/2 × base × height = 1/2 × ${base} × ${height} = ${area} cm²`
+  };
+}
+
+function makeParallelogramAreaQuestion(){
+  const base = choice([6,8,10,12,15,18]);
+  const height = choice([4,5,6,7,8,9]);
+  const area = base * height;
+
+  const mcq = buildMCQOptions(`${area} cm²`, [
+    `${2 * (base + height)} cm²`,
+    `${base + height} cm²`,
+    `${area + base} cm²`
+  ]);
+  if(!mcq) return makeParallelogramAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Area of a parallelogram",
+    difficulty: "Core / Intermediate",
+    question: `A parallelogram has base ${base} cm and perpendicular height ${height} cm. Find its area.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area = base × perpendicular height = ${base} × ${height} = ${area} cm²`
+  };
+}
+
+function makeTrapeziumAreaQuestion(){
+  const a = choice([6,8,10,12,14]);
+  const b = choice([10,12,14,16,18]);
+  const h = choice([4,5,6,8,10]);
+  if(((a + b) * h) % 2 !== 0) return makeTrapeziumAreaQuestion();
+  const area = ((a + b) * h) / 2;
+
+  const mcq = buildMCQOptions(`${area} cm²`, [
+    `${(a + b) * h} cm²`,
+    `${(a * b) / 2} cm²`,
+    `${a + b + h} cm²`
+  ]);
+  if(!mcq) return makeTrapeziumAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Area of a trapezium",
+    difficulty: "Intermediate",
+    question: `A trapezium has parallel sides ${a} cm and ${b} cm, and height ${h} cm. Find its area.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area = 1/2 × (sum of parallel sides) × height\n= 1/2 × (${a} + ${b}) × ${h} = ${area} cm²`
+  };
+}
+
+function makeCircleCircumferenceQuestion(){
+  const r = choice([3,4,5,6,7,8,9,10]);
+  const exact = `${2*r}π cm`;
+
+  const mcq = buildMCQOptions(exact, [
+    `${r*r}π cm`,
+    `${2*(r+1)}π cm`,
+    `${r}π cm`
+  ]);
+  if(!mcq) return makeCircleCircumferenceQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Circumference of a circle",
+    difficulty: "Core / Intermediate",
+    question: `A circle has radius ${r} cm. Give its circumference in terms of π.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Circumference = 2πr = 2π × ${r} = ${2*r}π cm`
+  };
+}
+
+function makeCircleAreaQuestion(){
+  const r = choice([2,3,4,5,6,7,8,9]);
+  const exact = `${r*r}π cm²`;
+
+  const mcq = buildMCQOptions(exact, [
+    `${2*r}π cm²`,
+    `${r*r*2}π cm²`,
+    `${r}π cm²`
+  ]);
+  if(!mcq) return makeCircleAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Area of a circle",
+    difficulty: "Core / Intermediate",
+    question: `A circle has radius ${r} cm. Give its area in terms of π.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area = πr² = π × ${r}² = ${r*r}π cm²`
+  };
+}
+
+function makePrismVolumeQuestion(){
+  const length = choice([5,6,8,10,12,15]);
+  const area = choice([12,15,18,20,24,30]);
+  const volume = length * area;
+
+  const mcq = buildMCQOptions(`${volume} cm³`, [
+    `${length + area} cm³`,
+    `${2 * volume} cm³`,
+    `${volume - area} cm³`
+  ]);
+  if(!mcq) return makePrismVolumeQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Volume of a prism",
+    difficulty: "Core / Intermediate",
+    question: `A prism has cross-sectional area ${area} cm² and length ${length} cm. Find its volume.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Volume = cross-sectional area × length = ${area} × ${length} = ${volume} cm³`
+  };
+}
+
+function makeCuboidVolumeQuestion(){
+  const l = choice([4,5,6,8,10,12]);
+  const w = choice([3,4,5,6,7,8]);
+  const h = choice([2,3,4,5,6,7]);
+  const volume = l * w * h;
+
+  const mcq = buildMCQOptions(`${volume} cm³`, [
+    `${2*(l+w+h)} cm³`,
+    `${l*w + h} cm³`,
+    `${l + w + h} cm³`
+  ]);
+  if(!mcq) return makeCuboidVolumeQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Volume of a cuboid",
+    difficulty: "Core",
+    question: `A cuboid has length ${l} cm, width ${w} cm and height ${h} cm. Find its volume.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Volume = length × width × height = ${l} × ${w} × ${h} = ${volume} cm³`
+  };
+}
+
+function makeCylinderVolumeQuestion(){
+  const r = choice([2,3,4,5,6]);
+  const h = choice([4,5,6,8,10,12]);
+  const exact = `${r*r*h}π cm³`;
+
+  const mcq = buildMCQOptions(exact, [
+    `${2*r*h}π cm³`,
+    `${r*h}π cm³`,
+    `${r*r + h}π cm³`
+  ]);
+  if(!mcq) return makeCylinderVolumeQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Volume of a cylinder",
+    difficulty: "Intermediate",
+    question: `A cylinder has radius ${r} cm and height ${h} cm. Give its volume in terms of π.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Volume = πr²h = π × ${r}² × ${h} = ${r*r*h}π cm³`
+  };
+}
+
+function makeScaleFactorLengthQuestion(){
+  const sf = choice([2,3,4,5]);
+  const original = choice([4,5,6,8,10,12]);
+  const image = original * sf;
+
+  const mcq = buildMCQOptions(`${image} cm`, [
+    `${original + sf} cm`,
+    `${original * sf * sf} cm`,
+    `${image - sf} cm`
+  ]);
+  if(!mcq) return makeScaleFactorLengthQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Scale factor (length)",
+    difficulty: "Core",
+    question: `An enlargement has scale factor ${sf}. A side of the original shape is ${original} cm. What is the corresponding side length on the enlarged shape?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `New length = original length × scale factor = ${original} × ${sf} = ${image} cm`
+  };
+}
+
+function makeScaleFactorAreaQuestion(){
+  const sf = choice([2,3,4,5]);
+  const original = choice([6,8,10,12,15,18]);
+  const image = original * sf * sf;
+
+  const mcq = buildMCQOptions(`${image} cm²`, [
+    `${original * sf} cm²`,
+    `${original + sf*sf} cm²`,
+    `${image - original} cm²`
+  ]);
+  if(!mcq) return makeScaleFactorAreaQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Scale factor (area)",
+    difficulty: "Intermediate",
+    question: `A shape is enlarged by scale factor ${sf}. The area of the original shape is ${original} cm². Find the area of the enlarged shape.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Area scale factor = ${sf}² = ${sf*sf}\nNew area = ${original} × ${sf*sf} = ${image} cm²`
+  };
+}
+
+function makeAnglesOnLineQuestion(){
+  const a = choice([25,35,40,55,65,75,80,95,110,125,140,150]);
+  const b = 180 - a;
+
+  const mcq = buildMCQOptions(`${b}°`, [
+    `${a}°`,
+    `${180 + a}°`,
+    `${90 - a}°`
+  ]);
+  if(!mcq) return makeAnglesOnLineQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Angles on a straight line",
+    difficulty: "Foundation / Core",
+    question: `Two angles on a straight line are supplementary. One angle is ${a}°. Find the other angle.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Angles on a straight line add to 180°.\nOther angle = 180° − ${a}° = ${b}°`
+  };
+}
+
+function makeAnglesAroundPointQuestion(){
+  const a = choice([65,75,85,95,105,115,125,135,145]);
+  const b = choice([45,55,65,75,85,95,105]);
+  if(a + b >= 360) return makeAnglesAroundPointQuestion();
+  const c = 360 - a - b;
+
+  const mcq = buildMCQOptions(`${c}°`, [
+    `${180 - a}°`,
+    `${360 - a}°`,
+    `${a + b}°`
+  ]);
+  if(!mcq) return makeAnglesAroundPointQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Angles around a point",
+    difficulty: "Core",
+    question: `Three angles around a point are ${a}°, ${b}° and x°. Find x.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Angles around a point add to 360°.\nx = 360° − ${a}° − ${b}° = ${c}°`
+  };
+}
+
+function makeTriangleAngleQuestion(){
+  const a = choice([35,40,45,50,55,60,65,70,75]);
+  const b = choice([25,30,35,40,45,50,55,60,65]);
+  if(a + b >= 180) return makeTriangleAngleQuestion();
+  const c = 180 - a - b;
+
+  const mcq = buildMCQOptions(`${c}°`, [
+    `${180 - a}°`,
+    `${a + b}°`,
+    `${90 - a}°`
+  ]);
+  if(!mcq) return makeTriangleAngleQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Angles in a triangle",
+    difficulty: "Foundation / Core",
+    question: `The angles in a triangle are ${a}°, ${b}° and x°. Find x.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Angles in a triangle add to 180°.\nx = 180° − ${a}° − ${b}° = ${c}°`
+  };
+}
+
+function makeQuadrilateralAngleQuestion(){
+  const a = choice([65,75,85,95,105,115]);
+  const b = choice([55,65,75,85,95]);
+  const c = choice([70,80,90,100,110]);
+  if(a + b + c >= 360) return makeQuadrilateralAngleQuestion();
+  const d = 360 - a - b - c;
+
+  const mcq = buildMCQOptions(`${d}°`, [
+    `${180 - a}°`,
+    `${a + b + c}°`,
+    `${360 - a - b}°`
+  ]);
+  if(!mcq) return makeQuadrilateralAngleQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Angles in a quadrilateral",
+    difficulty: "Core",
+    question: `The interior angles of a quadrilateral are ${a}°, ${b}°, ${c}° and x°. Find x.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Angles in a quadrilateral add to 360°.\nx = 360° − ${a}° − ${b}° − ${c}° = ${d}°`
+  };
+}
+
+function makePolygonInteriorAngleQuestion(){
+  const sides = choice([5,6,7,8,9,10]);
+  const sumAngles = (sides - 2) * 180;
+
+  const mcq = buildMCQOptions(`${sumAngles}°`, [
+    `${sides * 180}°`,
+    `${(sides - 1) * 180}°`,
+    `${(sides - 2) * 90}°`
+  ]);
+  if(!mcq) return makePolygonInteriorAngleQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Interior angle sum of a polygon",
+    difficulty: "Intermediate",
+    question: `Find the sum of the interior angles of a ${sides}-sided polygon.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Sum = (n − 2) × 180° = (${sides} − 2) × 180° = ${sumAngles}°`
+  };
+}
+
+function makeRegularPolygonExteriorQuestion(){
+  const sides = choice([5,6,8,9,10,12]);
+  if(360 % sides !== 0) return makeRegularPolygonExteriorQuestion();
+  const exterior = 360 / sides;
+
+  const mcq = buildMCQOptions(`${exterior}°`, [
+    `${180 - exterior}°`,
+    `${360 - exterior}°`,
+    `${sides * exterior}°`
+  ]);
+  if(!mcq) return makeRegularPolygonExteriorQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Exterior angle of a regular polygon",
+    difficulty: "Intermediate",
+    question: `Find one exterior angle of a regular ${sides}-sided polygon.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Exterior angle = 360° ÷ number of sides = 360° ÷ ${sides} = ${exterior}°`
+  };
+}
+
 function makePythagorasQuestion(){
-  const triples = [[3,4,5],[5,12,13],[6,8,10],[8,15,17]];
+  const triples = [[3,4,5],[5,12,13],[6,8,10],[8,15,17],[7,24,25]];
   const base = choice(triples);
   const scale = randInt(1, 4);
   const a = base[0] * scale;
@@ -851,16 +2187,184 @@ function makePythagorasQuestion(){
       `c = √${a*a + b*b} = ${c} cm`
   };
 }
+
+function makePythagorasMissingLegQuestion(){
+  const triples = [[3,4,5],[5,12,13],[6,8,10],[8,15,17],[7,24,25]];
+  const base = choice(triples);
+  const scale = randInt(1, 3);
+  const a = base[0] * scale;
+  const b = base[1] * scale;
+  const c = base[2] * scale;
+
+  const askA = choice([true,false]);
+  const correct = askA ? a : b;
+  const known = askA ? b : a;
+
+  const mcq = buildMCQOptions(`${correct} cm`, [
+    `${c - known} cm`,
+    `${known} cm`,
+    `${c + known} cm`
+  ]);
+  if(!mcq) return makePythagorasMissingLegQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Pythagoras – missing shorter side",
+    difficulty: "Intermediate",
+    question: `A right-angled triangle has hypotenuse ${c} cm and one shorter side ${known} cm. Find the other shorter side.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Missing side² = ${c}² − ${known}²\n` +
+      `= ${c*c} − ${known*known} = ${correct*correct}\n` +
+      `Missing side = ${correct} cm`
+  };
+}
+
+function makeTrigSOHQuestion(){
+  const triples = [[3,4,5],[5,12,13],[8,15,17]];
+  const t = choice(triples);
+  const opposite = t[0];
+  const hyp = t[2];
+  const text = `${opposite}/${hyp}`;
+
+  const mcq = buildMCQOptions(text, [
+    `${t[1]}/${hyp}`,
+    `${hyp}/${opposite}`,
+    `${opposite}/${t[1]}`
+  ]);
+  if(!mcq) return makeTrigSOHQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Trigonometry – sine ratio",
+    difficulty: "Intermediate",
+    question: `In a right-angled triangle, an angle has opposite side ${opposite} cm and hypotenuse ${hyp} cm. What is sin θ?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `sin θ = opposite / hypotenuse = ${opposite}/${hyp}`
+  };
+}
+
+function makeTrigCAHQuestion(){
+  const triples = [[3,4,5],[5,12,13],[8,15,17]];
+  const t = choice(triples);
+  const adjacent = t[1];
+  const hyp = t[2];
+  const text = `${adjacent}/${hyp}`;
+
+  const mcq = buildMCQOptions(text, [
+    `${t[0]}/${hyp}`,
+    `${hyp}/${adjacent}`,
+    `${adjacent}/${t[0]}`
+  ]);
+  if(!mcq) return makeTrigCAHQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Trigonometry – cosine ratio",
+    difficulty: "Intermediate",
+    question: `In a right-angled triangle, an angle has adjacent side ${adjacent} cm and hypotenuse ${hyp} cm. What is cos θ?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `cos θ = adjacent / hypotenuse = ${adjacent}/${hyp}`
+  };
+}
+
+function makeTrigTOAQuestion(){
+  const triples = [[3,4,5],[5,12,13],[8,15,17]];
+  const t = choice(triples);
+  const opposite = t[0];
+  const adjacent = t[1];
+  const text = `${opposite}/${adjacent}`;
+
+  const mcq = buildMCQOptions(text, [
+    `${adjacent}/${opposite}`,
+    `${t[2]}/${adjacent}`,
+    `${opposite}/${t[2]}`
+  ]);
+  if(!mcq) return makeTrigTOAQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Trigonometry – tangent ratio",
+    difficulty: "Intermediate",
+    question: `In a right-angled triangle, an angle has opposite side ${opposite} cm and adjacent side ${adjacent} cm. What is tan θ?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `tan θ = opposite / adjacent = ${opposite}/${adjacent}`
+  };
+}
+
+function makeSpeedQuestion(){
+  const speed = choice([45,50,55,60,70,80]);
+  const hours = choice([2,3,4,5]);
+  const distance = speed * hours;
+
+  const correctText = `${distance} km`;
+  const wrong1 = `${speed + hours} km`;
+  const wrong2 = `${speed * 2} km`;
+  const wrong3 = `${hours * 60} km`;
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeSpeedQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Speed, distance, time",
+    difficulty: "Core / Intermediate",
+    question: `A car travels at ${speed} km/h for ${hours} hours. How far does it travel?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Distance = speed × time = ${speed} × ${hours} = ${distance} km`
+  };
+}
+
+function makeDensityQuestion(){
+  const volume = choice([4,5,8,10,12,15]);
+  const density = choice([2,3,4,5,6,8]);
+  const mass = volume * density;
+
+  const correctText = `${density} g/cm³`;
+  const wrong1 = `${mass} g/cm³`;
+  const wrong2 = `${volume} g/cm³`;
+  const wrong3 = `${mass + volume} g/cm³`;
+
+  const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
+  if(!mcq) return makeDensityQuestion();
+
+  return {
+    id: makeID("GEO"),
+    topic: "Geometry & Measure",
+    skill: "Density",
+    difficulty: "Core / Intermediate",
+    question: `A block has mass ${mass} g and volume ${volume} cm³. Find the density of the block.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Density = mass ÷ volume = ${mass} ÷ ${volume} = ${density} g/cm³`
+  };
+}
+
+/* =========================
+   STATISTICS & PROBABILITY GENERATORS (UPGRADED — LOCKED)
+   ========================= */
 function makeMeanQuestionInteger(){
   const n = choice([4,5,6]);
-  const mean = choice([7,8,9,10,11,12,13]);
+  const mean = choice([6,7,8,9,10,11,12,13,14]);
   const total = mean * n;
 
   let nums = [];
   let remaining = total;
   for(let i=0;i<n-1;i++){
-    const maxHere = Math.min(20, remaining - (n-1-i));
-    const v = randInt(1, Math.max(1, maxHere));
+    const placesLeft = n - 1 - i;
+    const minHere = Math.max(1, remaining - placesLeft*20);
+    const maxHere = Math.min(20, remaining - placesLeft*1);
+    const v = randInt(minHere, maxHere);
     nums.push(v);
     remaining -= v;
   }
@@ -868,7 +2372,7 @@ function makeMeanQuestionInteger(){
   nums = shuffleArray(nums);
   if(nums.some(v => v < 1 || v > 20)) return makeMeanQuestionInteger();
 
-  const mcq = buildMCQOptions(String(mean), [String(total), String(nums[0]), String(nums[nums.length-1])]);
+  const mcq = buildMCQOptions(String(mean), [String(total), String(nums[0]), String(n)]);
   if(!mcq) return makeMeanQuestionInteger();
 
   return {
@@ -876,12 +2380,428 @@ function makeMeanQuestionInteger(){
     topic: "Statistics & Probability",
     skill: "Mean",
     difficulty: "Foundation / Core",
-    question: `The marks are: ${nums.join(", ")}.\nWhat is the mean?`,
+    question: `The marks are: ${nums.join(", ")}.
+What is the mean?`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
     solution:
       `Sum = ${nums.join(" + ")} = ${total}\n` +
       `Mean = ${total} ÷ ${n} = ${mean}`
+  };
+}
+
+function makeMissingMeanQuestion(){
+  const n = choice([4,5,6]);
+  const mean = choice([7,8,9,10,11,12,13]);
+  const total = n * mean;
+  let nums = [];
+  let sum = 0;
+  for(let i=0;i<n-1;i++){
+    const v = randInt(3,16);
+    nums.push(v);
+    sum += v;
+  }
+  const missing = total - sum;
+  if(missing < 2 || missing > 20 || nums.includes(missing)) return makeMissingMeanQuestion();
+
+  const mcq = buildMCQOptions(String(missing), [String(mean), String(total), String(sum)]);
+  if(!mcq) return makeMissingMeanQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Missing value from mean",
+    difficulty: "Core / Intermediate",
+    question: `The mean of ${n} numbers is ${mean}.
+The first ${n-1} numbers are ${nums.join(", ")}.
+Find the missing number.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Total needed = ${n} × ${mean} = ${total}\n` +
+      `Known total = ${nums.join(" + ")} = ${sum}\n` +
+      `Missing number = ${total} − ${sum} = ${missing}`
+  };
+}
+
+function makeMedianQuestion(){
+  const n = choice([5,7]);
+  const values = [];
+  while(values.length < n){
+    const v = randInt(2,30);
+    if(!values.includes(v)) values.push(v);
+  }
+  const sorted = values.slice().sort((a,b)=>a-b);
+  const median = sorted[Math.floor(n/2)];
+  const shown = shuffleArray(values);
+
+  const mcq = buildMCQOptions(String(median), [String(sorted[0]), String(sorted[sorted.length-1]), String(sorted[Math.floor(n/2)-1])]);
+  if(!mcq) return makeMedianQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Median",
+    difficulty: "Foundation / Core",
+    question: `Find the median of:
+${shown.join(", ")}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Put the numbers in order: ${sorted.join(", ")}\n` +
+      `The middle value is ${median}.`
+  };
+}
+
+function makeModeQuestion(){
+  const mode = randInt(4,18);
+  const others = [];
+  while(others.length < 4){
+    const v = randInt(2,20);
+    if(v !== mode && !others.includes(v)) others.push(v);
+  }
+  const values = shuffleArray([mode, mode, mode, ...others]);
+  const mcq = buildMCQOptions(String(mode), [String(others[0]), "No mode", String(others[1])]);
+  if(!mcq) return makeModeQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Mode",
+    difficulty: "Foundation / Core",
+    question: `Find the mode of:
+${values.join(", ")}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `The mode is the value that appears most often.\n${mode} appears most often.`
+  };
+}
+
+function makeRangeQuestion(){
+  const low = randInt(2,12);
+  const high = randInt(18,35);
+  const values = shuffleArray([low, high, randInt(low+1, high-1), randInt(low+1, high-1), randInt(low+1, high-1)]);
+  const range = high - low;
+
+  const mcq = buildMCQOptions(String(range), [String(high+low), String(high), String(low)]);
+  if(!mcq) return makeRangeQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Range",
+    difficulty: "Foundation / Core",
+    question: `Find the range of:
+${values.join(", ")}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Range = largest − smallest = ${high} − ${low} = ${range}`
+  };
+}
+
+function makeFrequencyMeanQuestion(){
+  const values = [choice([2,3,4]), choice([5,6,7]), choice([8,9,10])];
+  const freqs = [randInt(2,5), randInt(2,5), randInt(2,5)];
+  const totalFreq = freqs.reduce((a,b)=>a+b,0);
+  const total = values[0]*freqs[0] + values[1]*freqs[1] + values[2]*freqs[2];
+  if(total % totalFreq !== 0) return makeFrequencyMeanQuestion();
+  const mean = total / totalFreq;
+
+  const mcq = buildMCQOptions(String(mean), [String(total), String(totalFreq), String(values[1])]);
+  if(!mcq) return makeFrequencyMeanQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Mean from frequency table",
+    difficulty: "Core / Intermediate",
+    question:
+      `A frequency table is shown in text form.\n` +
+      `Value ${values[0]} has frequency ${freqs[0]}.\n` +
+      `Value ${values[1]} has frequency ${freqs[1]}.\n` +
+      `Value ${values[2]} has frequency ${freqs[2]}.\n` +
+      `Find the mean.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `Total = (${values[0]} × ${freqs[0]}) + (${values[1]} × ${freqs[1]}) + (${values[2]} × ${freqs[2]}) = ${total}\n` +
+      `Total frequency = ${totalFreq}\n` +
+      `Mean = ${total} ÷ ${totalFreq} = ${mean}`
+  };
+}
+
+
+function makeCombinedStatsConditionsQuestion(){
+  const cases = [
+    {
+      count: 5,
+      rangeText: "between 1 and 10 inclusive",
+      conditions: ["Median value of 5", "Range of 6", "Mean of 5"],
+      correct: [2,4,5,6,8],
+      wrongs: [[1,4,5,6,7], [2,3,5,7,9], [1,5,5,6,7]],
+      solutionLines: [
+        "Ordered numbers: 2, 4, 5, 6, 8",
+        "Median = 5",
+        "Range = 8 − 2 = 6",
+        "Mean = (2 + 4 + 5 + 6 + 8) ÷ 5 = 25 ÷ 5 = 5"
+      ]
+    },
+    {
+      count: 4,
+      rangeText: "whole numbers between 0 and 20 inclusive",
+      conditions: ["Median of 8", "Range of 10", "Mean of 9"],
+      correct: [5,7,9,15],
+      wrongs: [[3,7,9,13], [5,8,8,15], [4,7,9,14]],
+      solutionLines: [
+        "Ordered numbers: 5, 7, 9, 15",
+        "Median = (7 + 9) ÷ 2 = 8",
+        "Range = 15 − 5 = 10",
+        "Mean = (5 + 7 + 9 + 15) ÷ 4 = 36 ÷ 4 = 9"
+      ]
+    },
+    {
+      count: 5,
+      rangeText: "between 1 and 20 inclusive",
+      conditions: ["Median of 9", "Mode of 7", "Mean of 10"],
+      correct: [7,7,9,13,14],
+      wrongs: [[7,8,9,12,14], [7,7,8,13,15], [6,7,9,13,15]],
+      solutionLines: [
+        "Ordered numbers: 7, 7, 9, 13, 14",
+        "Median = 9",
+        "Mode = 7",
+        "Mean = (7 + 7 + 9 + 13 + 14) ÷ 5 = 50 ÷ 5 = 10"
+      ]
+    }
+  ];
+
+  const item = choice(cases);
+  const correctText = item.correct.join(", ");
+  const wrongTexts = item.wrongs.map(arr => arr.join(", "));
+  const mcq = buildMCQOptions(correctText, wrongTexts);
+  if(!mcq) return makeCombinedStatsConditionsQuestion();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Combined statistics conditions",
+    difficulty: "Intermediate",
+    question:
+      `Write down ${item.count} numbers satisfying all conditions:\n` +
+      `All ${item.rangeText}.\n` +
+      item.conditions.join(".\n") + ".",
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: item.solutionLines.join("\n")
+  };
+}
+
+function makeProbabilitySingleEvent(){
+  const red = randInt(2,8);
+  const blue = randInt(2,8);
+  const green = randInt(2,8);
+  const total = red + blue + green;
+  const colour = choice([{name:"red", count:red}, {name:"blue", count:blue}, {name:"green", count:green}]);
+  const ans = new Fraction(colour.count,total).toFractionString();
+
+  const mcq = buildMCQOptions(ans, [
+    new Fraction(total-colour.count,total).toFractionString(),
+    new Fraction(colour.count,total-colour.count).toFractionString(),
+    String(colour.count)
+  ]);
+  if(!mcq) return makeProbabilitySingleEvent();
+
+  return {
+    id: makeID("PROB"),
+    topic: "Statistics & Probability",
+    skill: "Probability of a single event",
+    difficulty: "Foundation / Core",
+    question: `A bag contains ${red} red counters, ${blue} blue counters and ${green} green counters.
+One counter is chosen at random.
+Find the probability of choosing a ${colour.name} counter.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Probability = favourable outcomes ÷ total outcomes = ${colour.count}/${total} = ${ans}`
+  };
+}
+
+function makeProbabilityNotEvent(){
+  const red = randInt(2,8);
+  const blue = randInt(2,8);
+  const green = randInt(2,8);
+  const total = red + blue + green;
+  const notRed = blue + green;
+  const ans = new Fraction(notRed,total).toFractionString();
+
+  const mcq = buildMCQOptions(ans, [
+    new Fraction(red,total).toFractionString(),
+    new Fraction(notRed,red).toFractionString(),
+    String(notRed)
+  ]);
+  if(!mcq) return makeProbabilityNotEvent();
+
+  return {
+    id: makeID("PROB"),
+    topic: "Statistics & Probability",
+    skill: "Probability of not an event",
+    difficulty: "Core",
+    question: `A bag contains ${red} red counters, ${blue} blue counters and ${green} green counters.
+One counter is chosen at random.
+Find the probability that it is not red.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Not red counters = ${blue} + ${green} = ${notRed}\nProbability = ${notRed}/${total} = ${ans}`
+  };
+}
+
+function makeExpectedFrequency(){
+  const total = choice([60,80,100,120,150,200]);
+  const num = choice([1,2,3,4,5]);
+  const den = choice([5,8,10,12,20]);
+  if(num >= den || (total*num)%den !== 0) return makeExpectedFrequency();
+  const expected = total*num/den;
+  const prob = new Fraction(num,den).toFractionString();
+
+  const mcq = buildMCQOptions(String(expected), [String(total), String(den), String(total-expected)]);
+  if(!mcq) return makeExpectedFrequency();
+
+  return {
+    id: makeID("PROB"),
+    topic: "Statistics & Probability",
+    skill: "Expected frequency",
+    difficulty: "Core / Intermediate",
+    question: `The probability that a spinner lands on blue is ${prob}.
+The spinner is spun ${total} times.
+How many times would you expect it to land on blue?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Expected frequency = probability × number of trials = ${prob} × ${total} = ${expected}`
+  };
+}
+
+function makeIndependentProbability(){
+  const p1 = choice([new Fraction(1,2), new Fraction(1,3), new Fraction(2,5), new Fraction(3,5)]);
+  const p2 = choice([new Fraction(1,2), new Fraction(1,4), new Fraction(2,3), new Fraction(3,4)]);
+  const ans = p1.mul(p2).toFractionString();
+
+  const mcq = buildMCQOptions(ans, [
+    p1.add(p2).toFractionString(),
+    p1.toFractionString(),
+    p2.toFractionString()
+  ]);
+  if(!mcq) return makeIndependentProbability();
+
+  return {
+    id: makeID("PROB"),
+    topic: "Statistics & Probability",
+    skill: "Independent events",
+    difficulty: "Intermediate",
+    question: `Event A has probability ${p1.toFractionString()}.
+Event B has probability ${p2.toFractionString()}.
+A and B are independent.
+Find the probability that both events happen.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `For independent events, multiply the probabilities.\n${p1.toFractionString()} × ${p2.toFractionString()} = ${ans}`
+  };
+}
+
+function makeMutuallyExclusiveProbability(){
+  const p1 = choice([new Fraction(1,10), new Fraction(1,5), new Fraction(3,10), new Fraction(2,5)]);
+  const p2 = choice([new Fraction(1,10), new Fraction(1,5), new Fraction(1,4), new Fraction(3,10)]);
+  const ansFrac = p1.add(p2);
+  if(ansFrac.n >= ansFrac.d) return makeMutuallyExclusiveProbability();
+  const ans = ansFrac.toFractionString();
+
+  const mcq = buildMCQOptions(ans, [
+    p1.mul(p2).toFractionString(),
+    p1.toFractionString(),
+    p2.toFractionString()
+  ]);
+  if(!mcq) return makeMutuallyExclusiveProbability();
+
+  return {
+    id: makeID("PROB"),
+    topic: "Statistics & Probability",
+    skill: "Mutually exclusive events",
+    difficulty: "Intermediate",
+    question: `The probability of event A is ${p1.toFractionString()}.
+The probability of event B is ${p2.toFractionString()}.
+A and B are mutually exclusive.
+Find the probability that A or B happens.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `For mutually exclusive events, add the probabilities.\n${p1.toFractionString()} + ${p2.toFractionString()} = ${ans}`
+  };
+}
+
+function makeRelativeFrequency(){
+  const trials = choice([40,50,60,80,100,120]);
+  const successes = choice([12,15,20,24,30,36,40]);
+  if(successes >= trials) return makeRelativeFrequency();
+  const ans = new Fraction(successes,trials).toFractionString();
+
+  const mcq = buildMCQOptions(ans, [
+    new Fraction(trials-successes,trials).toFractionString(),
+    `${successes}/${trials-successes}`,
+    String(successes)
+  ]);
+  if(!mcq) return makeRelativeFrequency();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Relative frequency",
+    difficulty: "Core / Intermediate",
+    question: `In ${trials} trials, an event happens ${successes} times.
+Find the relative frequency of the event.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Relative frequency = number of successes ÷ number of trials = ${successes}/${trials} = ${ans}`
+  };
+}
+
+function makePieChartAngle(){
+  const total = choice([24,30,36,40,45,60]);
+  const group = choice([4,5,6,8,9,10,12,15]);
+  if(group >= total || (360*group)%total !== 0) return makePieChartAngle();
+  const angle = 360*group/total;
+
+  const mcq = buildMCQOptions(`${angle}°`, [`${group}°`, `${360-angle}°`, `${total*group}°`]);
+  if(!mcq) return makePieChartAngle();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Pie chart angle",
+    difficulty: "Core / Intermediate",
+    question: `There are ${total} students in a survey.
+${group} students chose football.
+What angle should represent football in a pie chart?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Pie chart angle = ${group}/${total} × 360° = ${angle}°`
+  };
+}
+
+function makeScatterCorrelation(){
+  const context = choice([
+    {text:"As revision time increases, test score tends to increase.", ans:"Positive correlation", w1:"Negative correlation"},
+    {text:"As the age of a car increases, its value tends to decrease.", ans:"Negative correlation", w1:"Positive correlation"},
+    {text:"Shoe size and spelling test score show no clear pattern.", ans:"No correlation", w1:"Positive correlation"}
+  ]);
+  const mcq = buildMCQOptions(context.ans, [context.w1, "Strong calculation", "Impossible outcome"]);
+  if(!mcq) return makeScatterCorrelation();
+
+  return {
+    id: makeID("STAT"),
+    topic: "Statistics & Probability",
+    skill: "Correlation",
+    difficulty: "Core",
+    question: `${context.text}
+Which phrase best describes the correlation?`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${context.ans} is the correct description of the relationship.`
   };
 }
 
@@ -893,19 +2813,96 @@ const TOPIC_MAP = {
     makeReversePercentMoney,
     makePercentChange,
     makeRatioSimplify,
+    makeRatioShare,
+    makeDirectProportion,
     makeBestBuy,
     makeFractionAddSub,
+    makeFractionMultiply,
     makeFractionOfAmount,
     makeStandardFormConvert,
     makeStandardFormMultiply,
     makeStandardFormDivide,
     makeBoundsErrorInterval,
+    makeBoundsArea,
+    makeCompoundPercent,
+    makeAdvancedReversePercent,
+    makeSpeedQuestion,
+    makeDensityQuestion,
     makeMultiStepPercentThenFraction,
+    makeMixedPercentRatio,
     makeIndicesEvaluate
   ],
-  "Algebra": [ makeLinearEquationQuestion ],
-  "Geometry & Measure": [ makeRectangleAreaQuestion, makePythagorasQuestion ],
-  "Statistics & Probability": [ makeMeanQuestionInteger ]
+  "Algebra": [
+    makeExpandSingleBracketQuestion,
+    makeExpandDoubleBracketQuestion,
+    makeFactoriseCommonFactorQuestion,
+    makeFactoriseQuadraticQuestion,
+    makeSimplifyExpressionQuestion,
+    makeEquationOneStepQuestion,
+    makeEquationTwoStepQuestion,
+    makeEquationBracketsQuestion,
+    makeEquationUnknownBothSidesQuestion,
+    makeEquationFromWordsQuestion,
+    makeEquationCreatingQuestion,
+    makeRearrangingFormulaQuestion,
+    makeAlgebraicFractionSimplifyQuestion,
+    makeAlgebraicFractionMultiplyDivideQuestion,
+    makeAlgebraicFractionEquationQuestion,
+    makeInequalityQuestion,
+    makeInequalityInterpretationQuestion,
+    makeSimultaneousEliminationQuestion,
+    makeSimultaneousSubstitutionQuestion,
+    makeSequenceTermToTermQuestion,
+    makeSequenceNthTermQuestion,
+    makeSequencePatternQuestion,
+    makeTrialImprovementQuestion,
+    makeVelocityTimeTextQuestion,
+    makeDistanceTimeTextQuestion
+  ],
+  "Geometry & Measure": [
+    makeRectangleAreaQuestion,
+    makeRectanglePerimeterQuestion,
+    makeTriangleAreaQuestion,
+    makeParallelogramAreaQuestion,
+    makeTrapeziumAreaQuestion,
+    makeCircleCircumferenceQuestion,
+    makeCircleAreaQuestion,
+    makePrismVolumeQuestion,
+    makeCuboidVolumeQuestion,
+    makeCylinderVolumeQuestion,
+    makeScaleFactorLengthQuestion,
+    makeScaleFactorAreaQuestion,
+    makeAnglesOnLineQuestion,
+    makeAnglesAroundPointQuestion,
+    makeTriangleAngleQuestion,
+    makeQuadrilateralAngleQuestion,
+    makePolygonInteriorAngleQuestion,
+    makeRegularPolygonExteriorQuestion,
+    makePythagorasQuestion,
+    makePythagorasMissingLegQuestion,
+    makeTrigSOHQuestion,
+    makeTrigCAHQuestion,
+    makeTrigTOAQuestion,
+    makeSpeedQuestion,
+    makeDensityQuestion
+  ],
+  "Statistics & Probability": [
+    makeMeanQuestionInteger,
+    makeMissingMeanQuestion,
+    makeMedianQuestion,
+    makeModeQuestion,
+    makeRangeQuestion,
+    makeFrequencyMeanQuestion,
+    makeCombinedStatsConditionsQuestion,
+    makeProbabilitySingleEvent,
+    makeProbabilityNotEvent,
+    makeExpectedFrequency,
+    makeIndependentProbability,
+    makeMutuallyExclusiveProbability,
+    makeRelativeFrequency,
+    makePieChartAngle,
+    makeScatterCorrelation
+  ]
 };
 
 const ALL_TOPICS = ["Number","Algebra","Geometry & Measure","Statistics & Probability"];
@@ -916,6 +2913,15 @@ function pickTopicEvenly(){
   return topicBag.pop();
 }
 
+let numberFactoryBag = [];
+function refillNumberFactoryBag(){
+  numberFactoryBag = shuffleArray((TOPIC_MAP["Number"] || []).slice());
+}
+function pickNumberFactoryEvenly(){
+  if(numberFactoryBag.length === 0) refillNumberFactoryBag();
+  return numberFactoryBag.pop();
+}
+
 /* =========================
    App wiring
    ========================= */
@@ -923,6 +2929,9 @@ let currentQuestion = null;
 
 const topicSelect = document.getElementById("topicSelect");
 const newQuestionBtn = document.getElementById("newQuestionBtn");
+const mockPaperBtn = document.getElementById("mockPaperBtn");
+const showAllSolutionsBtn = document.getElementById("showAllSolutionsBtn");
+const printMockPaperBtn = document.getElementById("printMockPaperBtn");
 const showSolutionBtn = document.getElementById("showSolutionBtn");
 const hideSolutionBtn = document.getElementById("hideSolutionBtn");
 
@@ -931,6 +2940,7 @@ const optionsListEl = document.getElementById("optionsList");
 
 const solutionBlockEl = document.getElementById("solutionBlock");
 const solutionTextEl = document.getElementById("solutionText");
+const mockPaperContainerEl = document.getElementById("mockPaperContainer");
 
 const topicTagEl = document.getElementById("topicTag");
 const skillTagEl = document.getElementById("skillTag");
@@ -945,6 +2955,15 @@ function clearMeta(){
 }
 
 function generateQuestion(){
+  mockPaperContainerEl.style.display = "none";
+  mockPaperContainerEl.innerHTML = "";
+  showAllSolutionsBtn.style.display = "none";
+  printMockPaperBtn.style.display = "none";
+  questionTextEl.style.display = "block";
+  optionsListEl.style.display = "block";
+  showSolutionBtn.style.display = "inline-block";
+  hideSolutionBtn.style.display = "inline-block";
+
   const chosenTopic = topicSelect.value;
 
   let topicToUse = chosenTopic;
@@ -963,7 +2982,7 @@ function generateQuestion(){
     return;
   }
 
-  const factory = choice(factories);
+  const factory = (topicToUse === "Number") ? pickNumberFactoryEvenly() : choice(factories);
   currentQuestion = factory();
 
   topicTagEl.textContent = currentQuestion.topic;
@@ -985,6 +3004,91 @@ function generateQuestion(){
   solutionBlockEl.style.display = "none";
   hideSolutionBtn.disabled = true;
 }
+
+/* =========================
+   MOCK PAPER ENGINE (SAFE / ISOLATED)
+   ========================= */
+function pickFactoryForMockTopic(topic){
+  const factories = TOPIC_MAP[topic] || [];
+  if(factories.length === 0) return null;
+  return choice(factories);
+}
+
+function generateMockPaper(){
+  const topicPattern = [
+    "Number",
+    "Algebra",
+    "Geometry & Measure",
+    "Statistics & Probability",
+    "Number",
+    "Algebra",
+    "Geometry & Measure",
+    "Statistics & Probability",
+    "Number",
+    "Algebra"
+  ];
+
+  mockPaperContainerEl.innerHTML = "";
+  const labels = ["A","B","C","D"];
+  const paperQuestions = [];
+
+  topicPattern.forEach((topic) => {
+    const factory = pickFactoryForMockTopic(topic);
+    if(factory){ paperQuestions.push(factory()); }
+  });
+
+  let html = `<h2 style="font-size:1.25rem; color:#134b9b; margin-top:0;">GCSE Intermediate Mock Paper</h2>`;
+  html += `<div class="subtitle">10 mixed questions generated from Number, Algebra, Geometry & Measure, and Statistics & Probability.</div>`;
+
+  paperQuestions.forEach((q, i) => {
+    html += `
+      <div class="mock-question-card" style="margin:16px 0 20px; padding:14px; border:1px solid #dde3f5; border-radius:6px; background:#ffffff;">
+        <div style="font-size:0.85rem; color:#134b9b; margin-bottom:6px;">${q.topic} • ${q.skill}</div>
+        <div style="font-size:1.02rem; margin-bottom:10px;"><strong>Q${i+1}.</strong> ${String(q.question).replace(/\n/g,"<br>")}</div>
+        <ul style="list-style:none; padding-left:0; margin:0 0 10px;">
+    `;
+    q.options.forEach((opt, idx) => {
+      html += `<li style="margin-bottom:4px;"><strong>${labels[idx]}.</strong> ${opt}</li>`;
+    });
+    html += `
+        </ul>
+        <div class="mock-solution" style="display:none; border-top:1px solid #dde3f5; padding-top:10px; margin-top:10px;">
+          <strong>Worked solution</strong><br>${String(q.solution).replace(/\n/g,"<br>")}
+        </div>
+      </div>
+    `;
+  });
+
+  topicTagEl.textContent = "Mock Paper";
+  skillTagEl.textContent = "Mixed GCSE Practice";
+  difficultyTextEl.textContent = "Intermediate";
+  idTagEl.textContent = "10 questions";
+
+  questionTextEl.style.display = "none";
+  optionsListEl.style.display = "none";
+  solutionBlockEl.style.display = "none";
+  showSolutionBtn.style.display = "none";
+  hideSolutionBtn.style.display = "none";
+  hideSolutionBtn.disabled = true;
+
+  mockPaperContainerEl.innerHTML = html;
+  mockPaperContainerEl.style.display = "block";
+  showAllSolutionsBtn.style.display = "inline-block";
+  printMockPaperBtn.style.display = "inline-block";
+}
+
+mockPaperBtn.addEventListener("click", generateMockPaper);
+
+showAllSolutionsBtn.addEventListener("click", () => {
+  document.querySelectorAll(".mock-solution").forEach(el => {
+    el.style.display = "block";
+  });
+});
+
+printMockPaperBtn.addEventListener("click", () => {
+  if(mockPaperContainerEl.style.display !== "block") return;
+  window.print();
+});
 
 newQuestionBtn.addEventListener("click", generateQuestion);
 

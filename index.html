@@ -1717,7 +1717,102 @@ function makeDistanceTimeTextQuestion(){
     solution: `Speed = distance ÷ time = ${distance} ÷ ${time} = ${speed} m/s`
   };
 }
+function makeSolveQuadraticByFactorisingQuestion(){
+  const mode = choice(["standard", "coefficient", "difference"]);
 
+  if(mode === "difference"){
+    const r = choice([2,3,4,5,6,7,8,9,10,12]);
+    const correctText = `n = ${r} or n = -${r}`;
+
+    const mcq = buildMCQOptions(correctText, [
+      `n = ${r}`,
+      `n = -${r}`,
+      `n = ${r*r} or n = -${r*r}`
+    ]);
+    if(!mcq) return makeSolveQuadraticByFactorisingQuestion();
+
+    return {
+      id: makeID("ALG"),
+      topic: "Algebra",
+      skill: "Solving quadratics by factorising",
+      difficulty: "Intermediate",
+      question: `Solve: n² - ${r*r} = 0`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution:
+        `n² - ${r*r} = 0\n` +
+        `(n - ${r})(n + ${r}) = 0\n` +
+        `So n = ${r} or n = -${r}`
+    };
+  }
+
+  if(mode === "standard"){
+    const r = nonZeroInt(-9, 9);
+    let s = nonZeroInt(-9, 9);
+    if(s === r) s += (s > 0 ? 1 : -1);
+
+    const b = r + s;
+    const c = r * s;
+
+    const root1 = -r;
+    const root2 = -s;
+    const correctText = `n = ${root1} or n = ${root2}`;
+
+    const mcq = buildMCQOptions(correctText, [
+      `n = ${r} or n = ${s}`,
+      `n = ${root1 + 1} or n = ${root2}`,
+      `n = ${root1} or n = ${root2 + 1}`
+    ]);
+    if(!mcq) return makeSolveQuadraticByFactorisingQuestion();
+
+    return {
+      id: makeID("ALG"),
+      topic: "Algebra",
+      skill: "Solving quadratics by factorising",
+      difficulty: "Intermediate",
+      question: `Solve: n² ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)} = 0`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution:
+        `n² ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)} = 0\n` +
+        `${algFactor("n", r)}${algFactor("n", s)} = 0\n` +
+        `So n = ${root1} or n = ${root2}`
+    };
+  }
+
+  const a = choice([2,3,4,5]);
+  const r = nonZeroInt(-6, 6);
+  const s = nonZeroInt(-6, 6);
+
+  const b = a*s + r;
+  const c = r*s;
+
+  const root1Text = new Fraction(-r, a).toFractionString();
+  const root2Text = String(-s);
+  const correctText = `n = ${root1Text} or n = ${root2Text}`;
+
+  const mcq = buildMCQOptions(correctText, [
+    `n = ${r} or n = ${s}`,
+    `n = ${-r} or n = ${-s}`,
+    `n = ${a} or n = ${c}`
+  ]);
+  if(!mcq) return makeSolveQuadraticByFactorisingQuestion();
+
+  return {
+    id: makeID("ALG"),
+    topic: "Algebra",
+    skill: "Solving quadratics by factorising",
+    difficulty: "Intermediate",
+    question: `Solve: ${a}n² ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)} = 0`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution:
+      `${a}n² ${b >= 0 ? "+" : "-"} ${Math.abs(b)}n ${c >= 0 ? "+" : "-"} ${Math.abs(c)} = 0\n` +
+      `(${a}n ${r >= 0 ? "+" : "-"} ${Math.abs(r)})(n ${s >= 0 ? "+" : "-"} ${Math.abs(s)}) = 0\n` +
+      `${a}n ${r >= 0 ? "+" : "-"} ${Math.abs(r)} = 0 or n ${s >= 0 ? "+" : "-"} ${Math.abs(s)} = 0\n` +
+      `So n = ${root1Text} or n = ${root2Text}`
+  };
+}
 /* =========================
    GEOMETRY & MEASURE GENERATORS (UPGRADED — LOCKED)
    ========================= */
@@ -2857,7 +2952,8 @@ const TOPIC_MAP = {
     makeSequencePatternQuestion,
     makeTrialImprovementQuestion,
     makeVelocityTimeTextQuestion,
-    makeDistanceTimeTextQuestion
+    makeDistanceTimeTextQuestion,
+    makeSolveQuadraticByFactorisingQuestion
   ],
   "Geometry & Measure": [
     makeRectangleAreaQuestion,
